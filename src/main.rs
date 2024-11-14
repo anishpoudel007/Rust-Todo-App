@@ -5,18 +5,21 @@ use axum::{
     routing::get,
     Json, Router,
 };
+use error::AppError;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::sqlite::SqlitePool;
 use tokio::net::TcpListener;
 
+mod error;
+
 #[tokio::main]
 async fn main() {
     dotenvy::dotenv().expect("Unable to access .env file");
+
     let server_address = std::env::var("SERVER_ADDRESS").unwrap_or("localhost:4000".to_owned());
 
-    let database_url = "sqlite://./storage/task.db";
-    let db_pool = SqlitePool::connect(database_url)
+    let db_pool = SqlitePool::connect("sqlite://./storage/task.db")
         .await
         .expect("Cannot connect to database");
 
@@ -46,14 +49,13 @@ struct TaskRow {
     status: String,
 }
 
-async fn get_tasks(State(db_pool): State<SqlitePool>) -> impl IntoResponse {
+#[axum::debug_handler]
+async fn get_tasks(State(db_pool): State<SqlitePool>) -> Result<impl IntoResponse, AppError> {
     let rows = sqlx::query_as!(TaskRow, "Select * from tasks")
         .fetch_all(&db_pool)
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(e)))
-        .expect("Hello");
+        .await?;
 
-    (StatusCode::OK, Json(json!({"result": rows})))
+    Ok((StatusCode::OK, Json(json!({"result": rows}))))
 }
 
 #[derive(Debug, Deserialize)]
@@ -65,8 +67,7 @@ struct CreateTaskRequest {
 async fn create_task(
     State(db_pool): State<SqlitePool>,
     Json(task): Json<CreateTaskRequest>,
-) -> impl IntoResponse {
-    println!("{:?}", task);
+) -> Result<impl IntoResponse, AppError> {
     let task_row = sqlx::query_as!(
         TaskRow,
         "INSERT INTO tasks (title, description) VALUES ($1, $2) returning *",
@@ -74,24 +75,20 @@ async fn create_task(
         task.description,
     )
     .fetch_one(&db_pool)
-    .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))
-    .expect("Error");
+    .await?;
 
-    Json(task_row)
+    Ok(Json(task_row))
 }
 
 async fn get_task(
     State(db_pool): State<SqlitePool>,
     Path(task_id): Path<i32>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, AppError> {
     let task_row = sqlx::query_as!(TaskRow, "select * from tasks where id=$1", task_id)
         .fetch_one(&db_pool)
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))
-        .expect("Error");
+        .await?;
 
-    Json(task_row)
+    Ok(Json(task_row))
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -104,8 +101,7 @@ async fn update_task(
     State(db_pool): State<SqlitePool>,
     Path(task_id): Path<i32>,
     Json(task): Json<UpdateTaskRequest>,
-) -> impl IntoResponse {
-    println!("{:?}", task.title);
+) -> Result<impl IntoResponse, AppError> {
     let task_row = sqlx::query_as!(
         TaskRow,
         "UPDATE tasks SET title=$1, description=$2 WHERE id=$3 RETURNING *",
@@ -114,22 +110,18 @@ async fn update_task(
         task_id
     )
     .fetch_one(&db_pool)
-    .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))
-    .expect("Error");
+    .await?;
 
-    Json(task_row)
+    Ok(Json(task_row))
 }
 
 async fn delete_task(
     State(db_pool): State<SqlitePool>,
     Path(task_id): Path<i32>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, AppError> {
     sqlx::query!("delete from tasks where id=$1", task_id)
         .execute(&db_pool)
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))
-        .expect("asd");
+        .await?;
 
-    StatusCode::OK
+    Ok(StatusCode::OK)
 }
