@@ -16,7 +16,7 @@ impl From<sqlx::Error> for AppError {
 impl IntoResponse for AppError {
     fn into_response(self) -> axum::response::Response {
         let (status, error_message) = match self {
-            AppError::DatabaseError(e) => match e {
+            AppError::DatabaseError(sqlx_error) => match sqlx_error {
                 sqlx::Error::Configuration(error) => todo!(),
                 sqlx::Error::Database(database_error) => todo!(),
                 sqlx::Error::Io(error) => todo!(),
