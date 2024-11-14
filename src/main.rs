@@ -9,9 +9,10 @@ mod error;
 async fn main() {
     dotenvy::dotenv().expect("Unable to access .env file");
 
-    let server_address = std::env::var("SERVER_ADDRESS").unwrap_or("localhost:4000".to_owned());
+    let server_address = std::env::var("SERVER_ADDRESS").expect("Server Address not found");
+    let database_url = std::env::var("DATABASE_URL").expect("Database url not found");
 
-    let db_pool = SqlitePool::connect("sqlite://./storage/task.db")
+    let db_pool = SqlitePool::connect(&database_url)
         .await
         .expect("Cannot connect to database");
 
