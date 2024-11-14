@@ -15,13 +15,14 @@ struct TaskRow {
     id: i64,
     title: String,
     description: Option<String>,
-    status: String,
+    status: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct CreateTaskRequest {
     title: String,
     description: Option<String>,
+    status: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -45,9 +46,10 @@ pub async fn create_task(
 ) -> Result<impl IntoResponse, AppError> {
     let task_row = sqlx::query_as!(
         TaskRow,
-        "INSERT INTO tasks (title, description) VALUES ($1, $2) returning *",
+        "INSERT INTO tasks (title, description, status) VALUES ($1, $2, $3) returning *",
         task.title,
         task.description,
+        task.status
     )
     .fetch_one(&db_pool)
     .await?;

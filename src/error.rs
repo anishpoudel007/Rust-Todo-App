@@ -18,7 +18,10 @@ impl IntoResponse for AppError {
         let (status, error_message) = match self {
             AppError::DatabaseError(sqlx_error) => match sqlx_error {
                 sqlx::Error::Configuration(error) => todo!(),
-                sqlx::Error::Database(database_error) => todo!(),
+                sqlx::Error::Database(database_error) => (
+                    StatusCode::NOT_FOUND,
+                    json!({"error": database_error.to_string()}),
+                ),
                 sqlx::Error::Io(error) => todo!(),
                 sqlx::Error::Tls(error) => todo!(),
                 sqlx::Error::Protocol(_) => todo!(),
