@@ -4,6 +4,7 @@ use axum::{
     response::IntoResponse,
     Json,
 };
+use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::SqlitePool;
@@ -16,6 +17,8 @@ struct TaskRow {
     title: String,
     description: Option<String>,
     status: Option<String>,
+    date_created: Option<NaiveDateTime>,
+    date_updated: Option<NaiveDateTime>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -40,6 +43,7 @@ pub async fn get_tasks(State(db_pool): State<SqlitePool>) -> Result<impl IntoRes
     Ok((StatusCode::OK, Json(json!({"result": rows}))))
 }
 
+#[axum::debug_handler]
 pub async fn create_task(
     State(db_pool): State<SqlitePool>,
     Json(task): Json<CreateTaskRequest>,
