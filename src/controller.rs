@@ -12,7 +12,7 @@ use sqlx::prelude::FromRow;
 use crate::{api_response::ApiResponse, error::AppError, AppState};
 
 #[derive(Serialize, Deserialize, FromRow)]
-struct TaskRow {
+struct Task {
     id: i64,
     title: String,
     description: Option<String>,
@@ -48,7 +48,7 @@ pub async fn get_tasks(
         query = format!("{} where status='{}'", query, status.unwrap());
     }
 
-    let rows: Vec<TaskRow> = sqlx::query_as(&query).fetch_all(&app_state.db).await?;
+    let rows: Vec<Task> = sqlx::query_as(&query).fetch_all(&app_state.db).await?;
 
     Ok(ApiResponse {
         success: true,
@@ -64,7 +64,7 @@ pub async fn create_task(
     Json(task): Json<CreateTaskRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     let task_row = sqlx::query_as!(
-        TaskRow,
+        Task,
         "INSERT INTO tasks (title, description, status) VALUES ($1, $2, $3) returning *",
         task.title,
         task.description,
@@ -85,7 +85,7 @@ pub async fn get_task(
     State(app_state): State<Arc<AppState>>,
     Path(task_id): Path<i32>,
 ) -> Result<impl IntoResponse, AppError> {
-    let task_row = sqlx::query_as!(TaskRow, "select * from tasks where id=$1", task_id)
+    let task_row = sqlx::query_as!(Task, "select * from tasks where id=$1", task_id)
         .fetch_one(&app_state.db)
         .await?;
 
@@ -103,7 +103,7 @@ pub async fn update_task(
     Json(task): Json<UpdateTaskRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     let task_row = sqlx::query_as!(
-        TaskRow,
+        Task,
         "UPDATE tasks SET title=$1, description=$2, status=$3 WHERE id=$4 RETURNING *",
         task.title,
         task.description,
