@@ -2,14 +2,11 @@ use std::sync::Arc;
 
 use axum::{
     extract::{Path, State},
-    http::StatusCode,
     response::IntoResponse,
     Json,
 };
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
-use sqlx::SqlitePool;
 
 use crate::{api_response::ApiResponse, error::AppError, AppState};
 

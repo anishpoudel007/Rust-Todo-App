@@ -1,5 +1,4 @@
 use axum::{http::StatusCode, response::IntoResponse, Json};
-use serde_json::json;
 
 use crate::api_response::ApiResponse;
 
@@ -26,10 +25,7 @@ impl IntoResponse for AppError {
                 sqlx::Error::Io(error) => todo!(),
                 sqlx::Error::Tls(error) => todo!(),
                 sqlx::Error::Protocol(_) => todo!(),
-                sqlx::Error::RowNotFound => {
-                    // (StatusCode::NOT_FOUND, json!({"error": "Row Not Found"}))
-                    (StatusCode::NOT_FOUND, "Row not found".to_string())
-                }
+                sqlx::Error::RowNotFound => (StatusCode::NOT_FOUND, "Row not found".to_string()),
                 sqlx::Error::TypeNotFound { type_name } => todo!(),
                 sqlx::Error::ColumnIndexOutOfBounds { index, len } => todo!(),
                 sqlx::Error::ColumnNotFound(_) => todo!(),
@@ -49,13 +45,15 @@ impl IntoResponse for AppError {
             ),
         };
 
-        ApiResponse::<String> {
-            success: false,
-            data: None,
-            error: None,
-            message: Some(error_message.to_string()),
-        }
-        .into_response()
-        // (status, Json(error_message)).into_response()
+        (
+            status,
+            ApiResponse::<String> {
+                success: false,
+                data: None,
+                error: None,
+                message: Some(error_message.to_string()),
+            },
+        )
+            .into_response()
     }
 }
