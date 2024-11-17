@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::SqlitePool;
 
-use crate::{error::AppError, AppState};
+use crate::{api_response::ApiResponse, error::AppError, AppState};
 
 #[derive(Serialize, Deserialize)]
 struct TaskRow {
@@ -44,7 +44,12 @@ pub async fn get_tasks(
         .fetch_all(&app_state.db)
         .await?;
 
-    Ok((StatusCode::OK, Json(json!({"result": rows}))))
+    Ok(ApiResponse {
+        success: true,
+        data: Some(rows),
+        error: None,
+        message: None,
+    })
 }
 
 #[axum::debug_handler]
@@ -62,7 +67,12 @@ pub async fn create_task(
     .fetch_one(&app_state.db)
     .await?;
 
-    Ok(Json(task_row))
+    Ok(ApiResponse {
+        success: true,
+        data: Some(task_row),
+        error: None,
+        message: None,
+    })
 }
 
 pub async fn get_task(
@@ -73,7 +83,12 @@ pub async fn get_task(
         .fetch_one(&app_state.db)
         .await?;
 
-    Ok(Json(task_row))
+    Ok(ApiResponse {
+        success: true,
+        error: None,
+        data: Some(task_row),
+        message: Some("data".to_owned()),
+    })
 }
 
 pub async fn update_task(
@@ -91,7 +106,12 @@ pub async fn update_task(
     .fetch_one(&app_state.db)
     .await?;
 
-    Ok(Json(task_row))
+    Ok(ApiResponse {
+        success: true,
+        data: Some(task_row),
+        error: None,
+        message: None,
+    })
 }
 
 pub async fn delete_task(
@@ -102,5 +122,10 @@ pub async fn delete_task(
         .execute(&app_state.db)
         .await?;
 
-    Ok(StatusCode::OK)
+    Ok(ApiResponse::<String> {
+        success: true,
+        data: None,
+        error: None,
+        message: Some("Task deleted successfully".to_owned()),
+    })
 }

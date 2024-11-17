@@ -1,6 +1,8 @@
 use axum::{http::StatusCode, response::IntoResponse, Json};
 use serde_json::json;
 
+use crate::api_response::ApiResponse;
+
 #[derive(Debug)]
 pub enum AppError {
     DatabaseError(sqlx::Error),
@@ -18,15 +20,15 @@ impl IntoResponse for AppError {
         let (status, error_message) = match self {
             AppError::DatabaseError(sqlx_error) => match sqlx_error {
                 sqlx::Error::Configuration(error) => todo!(),
-                sqlx::Error::Database(database_error) => (
-                    StatusCode::NOT_FOUND,
-                    json!({"error": database_error.to_string()}),
-                ),
+                sqlx::Error::Database(database_error) => {
+                    (StatusCode::NOT_FOUND, database_error.to_string())
+                }
                 sqlx::Error::Io(error) => todo!(),
                 sqlx::Error::Tls(error) => todo!(),
                 sqlx::Error::Protocol(_) => todo!(),
                 sqlx::Error::RowNotFound => {
-                    (StatusCode::NOT_FOUND, json!({"error": "Row Not Found"}))
+                    // (StatusCode::NOT_FOUND, json!({"error": "Row Not Found"}))
+                    (StatusCode::NOT_FOUND, "Row not found".to_string())
                 }
                 sqlx::Error::TypeNotFound { type_name } => todo!(),
                 sqlx::Error::ColumnIndexOutOfBounds { index, len } => todo!(),
@@ -43,10 +45,17 @@ impl IntoResponse for AppError {
             },
             AppError::InternalServerError => (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                json!({"error": "Internal Server Error"}),
+                "Internal Server Error".to_string(),
             ),
         };
 
-        (status, Json(error_message)).into_response()
+        ApiResponse::<String> {
+            success: false,
+            data: None,
+            error: None,
+            message: Some(error_message.to_string()),
+        }
+        .into_response()
+        // (status, Json(error_message)).into_response()
     }
 }
