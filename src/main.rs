@@ -7,6 +7,7 @@ use tokio::net::TcpListener;
 mod api_response;
 mod controller;
 mod error;
+mod form;
 mod model;
 
 #[derive(Clone)]

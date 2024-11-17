@@ -6,23 +6,14 @@ use axum::{
     routing::get,
     Json, Router,
 };
-use serde::{Deserialize, Serialize};
 
-use crate::{api_response::ApiResponse, error::AppError, model::Task, AppState};
-
-#[derive(Debug, Deserialize)]
-pub struct CreateTaskRequest {
-    title: String,
-    description: Option<String>,
-    status: Option<String>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct UpdateTaskRequest {
-    title: String,
-    description: Option<String>,
-    status: Option<String>,
-}
+use crate::{
+    api_response::ApiResponse,
+    error::AppError,
+    form::{CreateTaskRequest, UpdateTaskRequest},
+    model::Task,
+    AppState,
+};
 
 pub async fn get_routes() -> Router<Arc<AppState>> {
     Router::new()
