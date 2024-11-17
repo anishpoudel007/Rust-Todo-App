@@ -3,23 +3,12 @@ use std::{collections::HashMap, sync::Arc};
 use axum::{
     extract::{Path, Query, State},
     response::IntoResponse,
-    Json,
+    routing::get,
+    Json, Router,
 };
-use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
-use sqlx::prelude::FromRow;
 
-use crate::{api_response::ApiResponse, error::AppError, AppState};
-
-#[derive(Serialize, Deserialize, FromRow)]
-struct Task {
-    id: i64,
-    title: String,
-    description: Option<String>,
-    status: Option<String>,
-    date_created: Option<NaiveDateTime>,
-    date_updated: Option<NaiveDateTime>,
-}
+use crate::{api_response::ApiResponse, error::AppError, model::Task, AppState};
 
 #[derive(Debug, Deserialize)]
 pub struct CreateTaskRequest {
@@ -33,6 +22,15 @@ pub struct UpdateTaskRequest {
     title: String,
     description: Option<String>,
     status: Option<String>,
+}
+
+pub async fn get_routes() -> Router<Arc<AppState>> {
+    Router::new()
+        .route("/tasks", get(get_tasks).post(create_task))
+        .route(
+            "/tasks/:task_id",
+            get(get_task).post(update_task).delete(delete_task),
+        )
 }
 
 #[axum::debug_handler]
