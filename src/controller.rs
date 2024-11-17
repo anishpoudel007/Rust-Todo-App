@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -9,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::SqlitePool;
 
-use crate::error::AppError;
+use crate::{error::AppError, AppState};
 
 #[derive(Serialize, Deserialize)]
 struct TaskRow {
@@ -35,9 +37,11 @@ pub struct UpdateTaskRequest {
 }
 
 #[axum::debug_handler]
-pub async fn get_tasks(State(db_pool): State<SqlitePool>) -> Result<impl IntoResponse, AppError> {
+pub async fn get_tasks(
+    State(app_state): State<Arc<AppState>>,
+) -> Result<impl IntoResponse, AppError> {
     let rows = sqlx::query_as!(TaskRow, "Select * from tasks")
-        .fetch_all(&db_pool)
+        .fetch_all(&app_state.db)
         .await?;
 
     Ok((StatusCode::OK, Json(json!({"result": rows}))))
@@ -45,7 +49,7 @@ pub async fn get_tasks(State(db_pool): State<SqlitePool>) -> Result<impl IntoRes
 
 #[axum::debug_handler]
 pub async fn create_task(
-    State(db_pool): State<SqlitePool>,
+    State(app_state): State<Arc<AppState>>,
     Json(task): Json<CreateTaskRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     let task_row = sqlx::query_as!(
@@ -55,25 +59,25 @@ pub async fn create_task(
         task.description,
         task.status
     )
-    .fetch_one(&db_pool)
+    .fetch_one(&app_state.db)
     .await?;
 
     Ok(Json(task_row))
 }
 
 pub async fn get_task(
-    State(db_pool): State<SqlitePool>,
+    State(app_state): State<Arc<AppState>>,
     Path(task_id): Path<i32>,
 ) -> Result<impl IntoResponse, AppError> {
     let task_row = sqlx::query_as!(TaskRow, "select * from tasks where id=$1", task_id)
-        .fetch_one(&db_pool)
+        .fetch_one(&app_state.db)
         .await?;
 
     Ok(Json(task_row))
 }
 
 pub async fn update_task(
-    State(db_pool): State<SqlitePool>,
+    State(app_state): State<Arc<AppState>>,
     Path(task_id): Path<i32>,
     Json(task): Json<UpdateTaskRequest>,
 ) -> Result<impl IntoResponse, AppError> {
@@ -84,18 +88,18 @@ pub async fn update_task(
         task.description,
         task_id
     )
-    .fetch_one(&db_pool)
+    .fetch_one(&app_state.db)
     .await?;
 
     Ok(Json(task_row))
 }
 
 pub async fn delete_task(
-    State(db_pool): State<SqlitePool>,
+    State(app_state): State<Arc<AppState>>,
     Path(task_id): Path<i32>,
 ) -> Result<impl IntoResponse, AppError> {
     sqlx::query!("delete from tasks where id=$1", task_id)
-        .execute(&db_pool)
+        .execute(&app_state.db)
         .await?;
 
     Ok(StatusCode::OK)
