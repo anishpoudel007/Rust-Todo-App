@@ -38,7 +38,6 @@ pub async fn get_tasks(
     State(app_state): State<Arc<AppState>>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<impl IntoResponse, AppError> {
-    println!("{:?}", params);
     let status = params.get("status");
     let mut query = String::from("select * from tasks");
 
