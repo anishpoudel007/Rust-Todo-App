@@ -1,16 +1,17 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     response::IntoResponse,
     Json,
 };
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
+use sqlx::prelude::FromRow;
 
 use crate::{api_response::ApiResponse, error::AppError, AppState};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, FromRow)]
 struct TaskRow {
     id: i64,
     title: String,
@@ -31,15 +32,23 @@ pub struct CreateTaskRequest {
 pub struct UpdateTaskRequest {
     title: String,
     description: Option<String>,
+    status: Option<String>,
 }
 
 #[axum::debug_handler]
 pub async fn get_tasks(
     State(app_state): State<Arc<AppState>>,
+    Query(params): Query<HashMap<String, String>>,
 ) -> Result<impl IntoResponse, AppError> {
-    let rows = sqlx::query_as!(TaskRow, "Select * from tasks")
-        .fetch_all(&app_state.db)
-        .await?;
+    println!("{:?}", params);
+    let status = params.get("status");
+    let mut query = String::from("select * from tasks");
+
+    if status.is_some() {
+        query = format!("{} where status='{}'", query, status.unwrap());
+    }
+
+    let rows: Vec<TaskRow> = sqlx::query_as(&query).fetch_all(&app_state.db).await?;
 
     Ok(ApiResponse {
         success: true,
@@ -95,9 +104,10 @@ pub async fn update_task(
 ) -> Result<impl IntoResponse, AppError> {
     let task_row = sqlx::query_as!(
         TaskRow,
-        "UPDATE tasks SET title=$1, description=$2 WHERE id=$3 RETURNING *",
+        "UPDATE tasks SET title=$1, description=$2, status=$3 WHERE id=$4 RETURNING *",
         task.title,
         task.description,
+        task.status,
         task_id
     )
     .fetch_one(&app_state.db)
