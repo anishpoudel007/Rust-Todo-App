@@ -3,9 +3,10 @@ use axum::{http::StatusCode, response::IntoResponse};
 use crate::api_response::ApiResponse;
 
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum AppError {
     DatabaseError(sqlx::Error),
-    InternalServerError,
+    GenericError(String),
 }
 
 impl From<sqlx::Error> for AppError {
@@ -26,7 +27,7 @@ impl IntoResponse for AppError {
                     "Database Error".to_string(),
                 ),
             },
-            AppError::InternalServerError => (
+            AppError::GenericError(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Internal Server Error".to_string(),
             ),
