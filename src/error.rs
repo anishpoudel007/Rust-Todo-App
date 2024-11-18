@@ -7,11 +7,18 @@ use crate::api_response::ApiResponse;
 pub enum AppError {
     DatabaseError(sqlx::Error),
     GenericError(String),
+    SeaOrm(sea_orm::DbErr),
 }
 
 impl From<sqlx::Error> for AppError {
     fn from(v: sqlx::Error) -> Self {
         Self::DatabaseError(v)
+    }
+}
+
+impl From<sea_orm::DbErr> for AppError {
+    fn from(v: sea_orm::DbErr) -> Self {
+        Self::SeaOrm(v)
     }
 }
 
@@ -31,6 +38,7 @@ impl IntoResponse for AppError {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Internal Server Error".to_string(),
             ),
+            AppError::SeaOrm(db_err) => (StatusCode::NOT_FOUND, db_err.to_string()),
         };
 
         (

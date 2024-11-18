@@ -7,11 +7,16 @@ use axum::{
     Json, Router,
 };
 
+use entity::prelude::*;
+use entity::tasks;
+
+use sea_orm::ActiveModelTrait;
+use sea_orm::{EntityTrait, Set};
+
 use crate::{
     api_response::ApiResponse,
     error::AppError,
     form::{CreateTaskRequest, UpdateTaskRequest},
-    model::Task,
     AppState,
 };
 
@@ -30,13 +35,7 @@ pub async fn get_tasks(
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<impl IntoResponse, AppError> {
     let status = params.get("status");
-    let mut query = String::from("select * from tasks");
-
-    if status.is_some() {
-        query = format!("{} where status='{}'", query, status.unwrap());
-    }
-
-    let rows: Vec<Task> = sqlx::query_as(&query).fetch_all(&app_state.db).await?;
+    let rows = Task::find().all(&app_state.db).await?;
 
     Ok(ApiResponse {
         success: true,
@@ -51,19 +50,18 @@ pub async fn create_task(
     State(app_state): State<Arc<AppState>>,
     Json(task): Json<CreateTaskRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    let task_row = sqlx::query_as!(
-        Task,
-        "INSERT INTO tasks (title, description, status) VALUES ($1, $2, $3) returning *",
-        task.title,
-        task.description,
-        task.status
-    )
-    .fetch_one(&app_state.db)
-    .await?;
+    let task = tasks::ActiveModel {
+        title: Set(task.title),
+        description: Set(task.description),
+        status: Set(task.status),
+        ..Default::default()
+    };
+
+    let task = task.insert(&app_state.db).await?;
 
     Ok(ApiResponse {
         success: true,
-        data: Some(task_row),
+        data: Some(task),
         error: None,
         message: None,
     })
@@ -73,9 +71,7 @@ pub async fn get_task(
     State(app_state): State<Arc<AppState>>,
     Path(task_id): Path<i32>,
 ) -> Result<impl IntoResponse, AppError> {
-    let task_row = sqlx::query_as!(Task, "select * from tasks where id=$1", task_id)
-        .fetch_one(&app_state.db)
-        .await?;
+    let task_row = Task::find_by_id(task_id).all(&app_state.db).await?;
 
     Ok(ApiResponse {
         success: true,
@@ -90,20 +86,19 @@ pub async fn update_task(
     Path(task_id): Path<i32>,
     Json(task): Json<UpdateTaskRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    let task_row = sqlx::query_as!(
-        Task,
-        "UPDATE tasks SET title=$1, description=$2, status=$3 WHERE id=$4 RETURNING *",
-        task.title,
-        task.description,
-        task.status,
-        task_id
-    )
-    .fetch_one(&app_state.db)
-    .await?;
+    let task_model = Task::find_by_id(task_id).one(&app_state.db).await?;
+
+    let mut task_model: TaskActiveModel = task_model.unwrap().into();
+
+    task_model.title = Set(task.title);
+    task_model.description = Set(task.description);
+    task_model.status = Set(task.status);
+
+    let task_model = task_model.update(&app_state.db).await?;
 
     Ok(ApiResponse {
         success: true,
-        data: Some(task_row),
+        data: Some(task_model),
         error: None,
         message: None,
     })
@@ -113,9 +108,9 @@ pub async fn delete_task(
     State(app_state): State<Arc<AppState>>,
     Path(task_id): Path<i32>,
 ) -> Result<impl IntoResponse, AppError> {
-    sqlx::query!("delete from tasks where id=$1", task_id)
-        .execute(&app_state.db)
-        .await?;
+    let res = Task::delete_by_id(task_id).exec(&app_state.db).await?;
+
+    println!("{:?}", res);
 
     Ok(ApiResponse::<String> {
         success: true,

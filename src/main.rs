@@ -1,18 +1,17 @@
 use std::sync::Arc;
 
 use axum::{http::StatusCode, response::IntoResponse, Router};
-use sqlx::sqlite::SqlitePool;
+use sea_orm::{Database, DatabaseConnection};
 use tokio::net::TcpListener;
 
 mod api_response;
 mod controller;
 mod error;
 mod form;
-mod model;
 
 #[derive(Clone)]
 struct AppState {
-    db: SqlitePool,
+    db: DatabaseConnection,
 }
 
 #[tokio::main]
@@ -22,11 +21,11 @@ async fn main() {
     let server_address = std::env::var("SERVER_ADDRESS").expect("Server Address not found");
     let database_url = std::env::var("DATABASE_URL").expect("Database url not found");
 
-    let db_pool = SqlitePool::connect(&database_url)
+    let db = Database::connect(&database_url)
         .await
-        .expect("Cannot connect to database");
+        .expect("Cannot connect to a database");
 
-    let app_state = Arc::new(AppState { db: db_pool });
+    let app_state = Arc::new(AppState { db });
 
     let app = Router::new()
         .nest("/api", controller::get_routes().await)
