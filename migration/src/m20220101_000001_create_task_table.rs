@@ -1,3 +1,4 @@
+use sea_orm::{EnumIter, Iterable};
 use sea_orm_migration::{prelude::*, schema::*};
 
 #[derive(DeriveMigrationName)]
@@ -6,7 +7,7 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        let table = manager
+        manager
             .create_table(
                 Table::create()
                     .table(Task::Table)
@@ -14,7 +15,14 @@ impl MigrationTrait for Migration {
                     .col(pk_auto(Task::Id))
                     .col(string(Task::Title))
                     .col(string(Task::Description))
-                    .col(string(Task::Status).default("pending"))
+                    .col(
+                        enumeration(Task::Status, StatusEnum::Table, StatusEnum::iter().skip(1))
+                            .default(StatusEnum::Pending.to_string())
+                            .check(
+                                Expr::col(Task::Status)
+                                    .is_in(StatusEnum::iter().skip(1).map(|item| item.to_string())),
+                            ),
+                    )
                     .col(date_time(Task::DateCreated).default(Expr::current_timestamp()))
                     .col(string_null(Task::DateUpdated))
                     .to_owned(),
@@ -52,4 +60,15 @@ enum Task {
     Status,
     DateCreated,
     DateUpdated,
+}
+
+#[derive(Iden, EnumIter)]
+enum StatusEnum {
+    Table,
+    #[iden = "pending"]
+    Pending,
+    #[iden = "in_progress"]
+    InProgress,
+    #[iden = "completed"]
+    Completed,
 }
