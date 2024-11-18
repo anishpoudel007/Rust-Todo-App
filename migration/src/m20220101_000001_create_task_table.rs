@@ -14,7 +14,7 @@ impl MigrationTrait for Migration {
                     .col(pk_auto(Task::Id))
                     .col(string(Task::Title))
                     .col(string(Task::Description))
-                    .col(string(Task::Status))
+                    .col(string(Task::Status).default("pending"))
                     .col(date_time(Task::DateCreated).default(Expr::current_timestamp()))
                     .col(string_null(Task::DateUpdated))
                     .to_owned(),
