@@ -1,50 +1,49 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use axum::{
-    extract::{Path, State},
-    http::StatusCode,
+    extract::{Path, Query, State},
     response::IntoResponse,
-    Json,
+    routing::get,
+    Json, Router,
 };
-use chrono::{DateTime, NaiveDateTime, Utc};
-use serde::{Deserialize, Serialize};
-use serde_json::json;
-use sqlx::SqlitePool;
 
-use crate::{error::AppError, AppState};
+use crate::{
+    api_response::ApiResponse,
+    error::AppError,
+    form::{CreateTaskRequest, UpdateTaskRequest},
+    model::Task,
+    AppState,
+};
 
-#[derive(Serialize, Deserialize)]
-struct TaskRow {
-    id: i64,
-    title: String,
-    description: Option<String>,
-    status: Option<String>,
-    date_created: Option<NaiveDateTime>,
-    date_updated: Option<NaiveDateTime>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct CreateTaskRequest {
-    title: String,
-    description: Option<String>,
-    status: Option<String>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct UpdateTaskRequest {
-    title: String,
-    description: Option<String>,
+pub async fn get_routes() -> Router<Arc<AppState>> {
+    Router::new()
+        .route("/tasks", get(get_tasks).post(create_task))
+        .route(
+            "/tasks/:task_id",
+            get(get_task).post(update_task).delete(delete_task),
+        )
 }
 
 #[axum::debug_handler]
 pub async fn get_tasks(
     State(app_state): State<Arc<AppState>>,
+    Query(params): Query<HashMap<String, String>>,
 ) -> Result<impl IntoResponse, AppError> {
-    let rows = sqlx::query_as!(TaskRow, "Select * from tasks")
-        .fetch_all(&app_state.db)
-        .await?;
+    let status = params.get("status");
+    let mut query = String::from("select * from tasks");
 
-    Ok((StatusCode::OK, Json(json!({"result": rows}))))
+    if status.is_some() {
+        query = format!("{} where status='{}'", query, status.unwrap());
+    }
+
+    let rows: Vec<Task> = sqlx::query_as(&query).fetch_all(&app_state.db).await?;
+
+    Ok(ApiResponse {
+        success: true,
+        data: Some(rows),
+        error: None,
+        message: None,
+    })
 }
 
 #[axum::debug_handler]
@@ -53,7 +52,7 @@ pub async fn create_task(
     Json(task): Json<CreateTaskRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     let task_row = sqlx::query_as!(
-        TaskRow,
+        Task,
         "INSERT INTO tasks (title, description, status) VALUES ($1, $2, $3) returning *",
         task.title,
         task.description,
@@ -62,18 +61,28 @@ pub async fn create_task(
     .fetch_one(&app_state.db)
     .await?;
 
-    Ok(Json(task_row))
+    Ok(ApiResponse {
+        success: true,
+        data: Some(task_row),
+        error: None,
+        message: None,
+    })
 }
 
 pub async fn get_task(
     State(app_state): State<Arc<AppState>>,
     Path(task_id): Path<i32>,
 ) -> Result<impl IntoResponse, AppError> {
-    let task_row = sqlx::query_as!(TaskRow, "select * from tasks where id=$1", task_id)
+    let task_row = sqlx::query_as!(Task, "select * from tasks where id=$1", task_id)
         .fetch_one(&app_state.db)
         .await?;
 
-    Ok(Json(task_row))
+    Ok(ApiResponse {
+        success: true,
+        error: None,
+        data: Some(task_row),
+        message: Some("data".to_owned()),
+    })
 }
 
 pub async fn update_task(
@@ -82,16 +91,22 @@ pub async fn update_task(
     Json(task): Json<UpdateTaskRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     let task_row = sqlx::query_as!(
-        TaskRow,
-        "UPDATE tasks SET title=$1, description=$2 WHERE id=$3 RETURNING *",
+        Task,
+        "UPDATE tasks SET title=$1, description=$2, status=$3 WHERE id=$4 RETURNING *",
         task.title,
         task.description,
+        task.status,
         task_id
     )
     .fetch_one(&app_state.db)
     .await?;
 
-    Ok(Json(task_row))
+    Ok(ApiResponse {
+        success: true,
+        data: Some(task_row),
+        error: None,
+        message: None,
+    })
 }
 
 pub async fn delete_task(
@@ -102,5 +117,10 @@ pub async fn delete_task(
         .execute(&app_state.db)
         .await?;
 
-    Ok(StatusCode::OK)
+    Ok(ApiResponse::<String> {
+        success: true,
+        data: None,
+        error: None,
+        message: Some("Task deleted successfully".to_owned()),
+    })
 }

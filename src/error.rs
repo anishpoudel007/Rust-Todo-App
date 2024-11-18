@@ -1,10 +1,12 @@
-use axum::{http::StatusCode, response::IntoResponse, Json};
-use serde_json::json;
+use axum::{http::StatusCode, response::IntoResponse};
+
+use crate::api_response::ApiResponse;
 
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum AppError {
     DatabaseError(sqlx::Error),
-    InternalServerError,
+    GenericError(String),
 }
 
 impl From<sqlx::Error> for AppError {
@@ -17,36 +19,29 @@ impl IntoResponse for AppError {
     fn into_response(self) -> axum::response::Response {
         let (status, error_message) = match self {
             AppError::DatabaseError(sqlx_error) => match sqlx_error {
-                sqlx::Error::Configuration(error) => todo!(),
-                sqlx::Error::Database(database_error) => (
-                    StatusCode::NOT_FOUND,
-                    json!({"error": database_error.to_string()}),
-                ),
-                sqlx::Error::Io(error) => todo!(),
-                sqlx::Error::Tls(error) => todo!(),
-                sqlx::Error::Protocol(_) => todo!(),
-                sqlx::Error::RowNotFound => {
-                    (StatusCode::NOT_FOUND, json!({"error": "Row Not Found"}))
+                sqlx::Error::Database(database_error) => {
+                    (StatusCode::NOT_FOUND, database_error.to_string())
                 }
-                sqlx::Error::TypeNotFound { type_name } => todo!(),
-                sqlx::Error::ColumnIndexOutOfBounds { index, len } => todo!(),
-                sqlx::Error::ColumnNotFound(_) => todo!(),
-                sqlx::Error::ColumnDecode { index, source } => todo!(),
-                sqlx::Error::Encode(error) => todo!(),
-                sqlx::Error::Decode(error) => todo!(),
-                sqlx::Error::AnyDriverError(error) => todo!(),
-                sqlx::Error::PoolTimedOut => todo!(),
-                sqlx::Error::PoolClosed => todo!(),
-                sqlx::Error::WorkerCrashed => todo!(),
-                sqlx::Error::Migrate(migrate_error) => todo!(),
-                _ => todo!(),
+                _ => (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Database Error".to_string(),
+                ),
             },
-            AppError::InternalServerError => (
+            AppError::GenericError(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                json!({"error": "Internal Server Error"}),
+                "Internal Server Error".to_string(),
             ),
         };
 
-        (status, Json(error_message)).into_response()
+        (
+            status,
+            ApiResponse::<String> {
+                success: false,
+                data: None,
+                error: None,
+                message: Some(error_message.to_string()),
+            },
+        )
+            .into_response()
     }
 }

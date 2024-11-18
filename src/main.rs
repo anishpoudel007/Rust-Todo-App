@@ -1,11 +1,14 @@
 use std::sync::Arc;
 
-use axum::{routing::get, Router};
+use axum::{http::StatusCode, response::IntoResponse, Router};
 use sqlx::sqlite::SqlitePool;
 use tokio::net::TcpListener;
 
+mod api_response;
 mod controller;
 mod error;
+mod form;
+mod model;
 
 #[derive(Clone)]
 struct AppState {
@@ -26,18 +29,9 @@ async fn main() {
     let app_state = Arc::new(AppState { db: db_pool });
 
     let app = Router::new()
-        .route("/", get(|| async { "Hello World!" }))
-        .route(
-            "/tasks",
-            get(controller::get_tasks).post(controller::create_task),
-        )
-        .route(
-            "/tasks/:task_id",
-            get(controller::get_task)
-                .post(controller::update_task)
-                .delete(controller::delete_task),
-        )
-        .with_state(app_state);
+        .nest("/api", controller::get_routes().await)
+        .with_state(app_state)
+        .fallback(fallback_handler);
 
     let listener = TcpListener::bind(server_address.clone())
         .await
@@ -46,4 +40,8 @@ async fn main() {
     println!("listening on {}", server_address);
 
     axum::serve(listener, app).await.expect("Error");
+}
+
+async fn fallback_handler() -> impl IntoResponse {
+    StatusCode::NOT_FOUND
 }
