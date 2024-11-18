@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace]
-members = [".", "entity"]
+members = [".", "entity", "migration"]
 
 [dependencies]
 entity = {path="entity"}
@@ -21,3 +21,8 @@ serde_json = { version="1.0.133" }
 
 # env
 dotenvy = { version="0.15.7" }
+
+[profile.release]
+strip = true
+lto = true
+opt-level = "s"
