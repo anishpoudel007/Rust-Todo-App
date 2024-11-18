@@ -4,7 +4,7 @@ use sea_orm::entity::prelude::*;
 use serde::Serialize;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize)]
-#[sea_orm(table_name = "tasks")]
+#[sea_orm(table_name = "task")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
