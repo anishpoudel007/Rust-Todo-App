@@ -22,6 +22,8 @@ async fn main() {
 
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::DEBUG)
+        .pretty()
+        .with_ansi(true)
         .init();
 
     let server_address = std::env::var("SERVER_ADDRESS").expect("Server Address not found");

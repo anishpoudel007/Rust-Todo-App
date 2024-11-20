@@ -24,7 +24,7 @@ serde_json = { version="1.0.133" }
 dotenvy = { version="0.15.7" }
 
 tracing = "0.1.40"
-tracing-subscriber = { version="0.3.18", features=["env-filter"] }
+tracing-subscriber = { version="0.3.18", features=["env-filter", "ansi"] }
 
 [profile.release]
 strip = true
