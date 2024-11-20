@@ -12,6 +12,7 @@ use entity::tasks;
 
 use sea_orm::ActiveModelTrait;
 use sea_orm::{EntityTrait, Set};
+use validator::Validate;
 
 use crate::{
     api_response::ApiResponse,
@@ -50,6 +51,8 @@ pub async fn create_task(
     State(app_state): State<Arc<AppState>>,
     Json(task): Json<CreateTaskRequest>,
 ) -> Result<impl IntoResponse, AppError> {
+    task.validate()?;
+
     let task = tasks::ActiveModel {
         title: Set(task.title),
         description: Set(task.description),
@@ -64,7 +67,8 @@ pub async fn create_task(
         data: Some(task),
         error: None,
         message: None,
-    })
+    }
+    .into_response())
 }
 
 pub async fn get_task(
@@ -86,6 +90,8 @@ pub async fn update_task(
     Path(task_id): Path<i32>,
     Json(task): Json<UpdateTaskRequest>,
 ) -> Result<impl IntoResponse, AppError> {
+    task.validate()?;
+
     let task_model = Task::find_by_id(task_id).one(&app_state.db).await?;
 
     let mut task_model: TaskActiveModel = task_model.unwrap().into();

@@ -6,7 +6,7 @@ use std::collections::HashMap;
 pub struct ApiResponse<T> {
     pub success: bool,
     pub data: Option<T>,
-    pub error: Option<HashMap<String, Vec<String>>>,
+    pub error: Option<String>,
     pub message: Option<String>,
 }
 
