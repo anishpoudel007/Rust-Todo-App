@@ -3,6 +3,8 @@ use std::sync::Arc;
 use axum::{http::StatusCode, response::IntoResponse, Router};
 use sea_orm::{Database, DatabaseConnection};
 use tokio::net::TcpListener;
+use tower_http::trace::TraceLayer;
+use tracing::info;
 
 mod api_response;
 mod controller;
@@ -18,6 +20,12 @@ struct AppState {
 async fn main() {
     dotenvy::dotenv().expect("Unable to access .env file");
 
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::DEBUG)
+        .pretty()
+        .with_ansi(true)
+        .init();
+
     let server_address = std::env::var("SERVER_ADDRESS").expect("Server Address not found");
     let database_url = std::env::var("DATABASE_URL").expect("Database url not found");
 
@@ -30,13 +38,14 @@ async fn main() {
     let app = Router::new()
         .nest("/api", controller::get_routes().await)
         .with_state(app_state)
+        .layer(TraceLayer::new_for_http())
         .fallback(fallback_handler);
 
     let listener = TcpListener::bind(server_address.clone())
         .await
         .expect("Could not create TCP Listener");
 
-    println!("listening on {}", server_address);
+    info!("Listening on {}", server_address);
 
     axum::serve(listener, app).await.expect("Error");
 }

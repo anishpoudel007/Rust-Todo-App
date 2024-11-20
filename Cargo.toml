@@ -11,7 +11,8 @@ entity = {path="entity"}
 axum = { version="0.7.9", features=["macros"] }
 tokio = { version="1.41.1", features=["full"] }
 sqlx = { version="0.8.2", features=["sqlite", "runtime-tokio", "tls-native-tls", "macros", "chrono"]}
-sea-orm = { version = "1.1.0", features = [ "sqlx-sqlite", "runtime-tokio-native-tls", "macros", "with-chrono" ] }
+sea-orm = { version = "1.1.1", features = [ "sqlx-sqlite", "runtime-tokio-native-tls", "macros", "with-chrono" ] }
+tower-http = { version="0.6.2", features=["trace"]}
 
 chrono = {version="0.4.38", features=["serde"]}
 
@@ -21,6 +22,9 @@ serde_json = { version="1.0.133" }
 
 # env
 dotenvy = { version="0.15.7" }
+
+tracing = "0.1.40"
+tracing-subscriber = { version="0.3.18", features=["env-filter", "ansi"] }
 
 [profile.release]
 strip = true
