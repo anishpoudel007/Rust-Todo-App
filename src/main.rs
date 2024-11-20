@@ -45,7 +45,7 @@ async fn main() {
         .await
         .expect("Could not create TCP Listener");
 
-    info!("listening on {}", server_address);
+    info!("Listening on {}", server_address);
 
     axum::serve(listener, app).await.expect("Error");
 }
