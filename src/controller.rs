@@ -10,8 +10,7 @@ use axum::{
 use entity::prelude::*;
 use entity::tasks;
 
-use sea_orm::ActiveModelTrait;
-use sea_orm::{EntityTrait, Set};
+use sea_orm::{ActiveModelTrait, EntityTrait, Set};
 use validator::Validate;
 
 use crate::{
@@ -38,7 +37,7 @@ pub async fn get_tasks(
     let status = params.get("status");
     let rows = Task::find().all(&app_state.db).await?;
 
-    Ok(ApiResponse::data(rows, Some("success".to_string())))
+    Ok(ApiResponse::data(rows, None))
 }
 
 #[axum::debug_handler]
