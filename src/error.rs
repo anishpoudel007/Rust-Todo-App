@@ -2,7 +2,6 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use serde_json::json;
 
 use crate::api_response::ApiResponse;
 
@@ -35,7 +34,7 @@ impl From<validator::ValidationErrors> for AppError {
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        let (status, error_message) = match self {
+        let (status_code, error_message) = match self {
             AppError::DatabaseError(sqlx_error) => match sqlx_error {
                 sqlx::Error::Database(database_error) => {
                     (StatusCode::NOT_FOUND, database_error.to_string())
@@ -53,13 +52,8 @@ impl IntoResponse for AppError {
         };
 
         (
-            status,
-            ApiResponse::<String> {
-                success: false,
-                data: None,
-                error: Some(error_message),
-                message: Some("Error".to_string()),
-            },
+            status_code,
+            ApiResponse::error(error_message, Some("Error".to_string())),
         )
             .into_response()
     }

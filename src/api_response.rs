@@ -1,12 +1,37 @@
 use axum::{response::IntoResponse, Json};
 use serde::Serialize;
-use std::collections::HashMap;
+use serde_json::{json, Value};
 
 #[derive(Serialize)]
-pub struct ApiResponse<T> {
-    pub success: bool,
-    pub data: Option<T>,
-    pub error: Option<String>,
+pub enum ApiResponse {
+    Error(ErrorResponse),
+    Data(DataResponse),
+}
+
+impl ApiResponse {
+    pub fn error(e: impl Serialize, message: Option<String>) -> ApiResponse {
+        Self::Error(ErrorResponse {
+            error: json!(e),
+            message: message.or(Some("An error occured.".to_string())),
+        })
+    }
+    pub fn data(data: impl Serialize, message: Option<String>) -> ApiResponse {
+        Self::Data(DataResponse {
+            data: json!(data),
+            message: message.or(Some("Data retrieved successfully".to_string())),
+        })
+    }
+}
+
+#[derive(Serialize)]
+pub struct ErrorResponse {
+    pub error: Value,
+    pub message: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct DataResponse {
+    pub data: Value,
     pub message: Option<String>,
 }
 
@@ -14,8 +39,11 @@ pub struct ApiResponse<T> {
 //
 //
 
-impl<T: Serialize> IntoResponse for ApiResponse<T> {
+impl IntoResponse for ApiResponse {
     fn into_response(self) -> axum::response::Response {
-        Json(self).into_response()
+        match self {
+            ApiResponse::Error(err) => Json(err).into_response(),
+            ApiResponse::Data(data) => Json(data).into_response(),
+        }
     }
 }
