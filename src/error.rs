@@ -47,7 +47,7 @@ impl IntoResponse for AppError {
             AppError::GenericError(e) => (StatusCode::INTERNAL_SERVER_ERROR, e),
             AppError::SeaOrm(db_err) => (StatusCode::NOT_FOUND, db_err.to_string()),
             AppError::Validation(validation_errors) => {
-                (StatusCode::NOT_FOUND, validation_errors.to_string())
+                (StatusCode::BAD_REQUEST, validation_errors.to_string())
             }
         };
 
