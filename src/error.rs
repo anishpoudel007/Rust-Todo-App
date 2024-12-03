@@ -3,10 +3,9 @@ use axum::{
     response::{IntoResponse, Response},
 };
 
-use crate::api_response::ApiResponse;
+use crate::api_response::JsonResponse;
 
 #[derive(Debug)]
-#[non_exhaustive]
 pub enum AppError {
     DatabaseError(sqlx::Error),
     GenericError(String),
@@ -53,7 +52,7 @@ impl IntoResponse for AppError {
 
         (
             status_code,
-            ApiResponse::error(error_message, Some("Error".to_string())),
+            JsonResponse::error(error_message, Some("Error".to_string())),
         )
             .into_response()
     }

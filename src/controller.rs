@@ -14,7 +14,7 @@ use sea_orm::{ActiveModelTrait, EntityTrait, Set};
 use validator::Validate;
 
 use crate::{
-    api_response::ApiResponse,
+    api_response::JsonResponse,
     error::AppError,
     form::{CreateTaskRequest, UpdateTaskRequest},
     AppState,
@@ -37,7 +37,7 @@ pub async fn get_tasks(
     let status = params.get("status");
     let rows = Task::find().all(&app_state.db).await?;
 
-    Ok(ApiResponse::data(rows, None))
+    Ok(JsonResponse::data(rows, None))
 }
 
 #[axum::debug_handler]
@@ -56,7 +56,7 @@ pub async fn create_task(
 
     let task = task.insert(&app_state.db).await?;
 
-    Ok(ApiResponse::data(task, None))
+    Ok(JsonResponse::data(task, None))
 
     // Ok(ApiResponse {
     //     success: true,
@@ -73,7 +73,7 @@ pub async fn get_task(
 ) -> Result<impl IntoResponse, AppError> {
     let task_row = Task::find_by_id(task_id).all(&app_state.db).await?;
 
-    Ok(ApiResponse::data(task_row, None))
+    Ok(JsonResponse::data(task_row, None))
 }
 
 pub async fn update_task(
@@ -81,9 +81,9 @@ pub async fn update_task(
     Path(task_id): Path<i32>,
     Json(task): Json<UpdateTaskRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    task.validate()?;
-
     let task_model = Task::find_by_id(task_id).one(&app_state.db).await?;
+
+    task.validate()?;
 
     let mut task_model: TaskActiveModel = task_model.unwrap().into();
 
@@ -93,7 +93,7 @@ pub async fn update_task(
 
     let task_model = task_model.update(&app_state.db).await?;
 
-    Ok(ApiResponse::data(task_model, None))
+    Ok(JsonResponse::data(task_model, None))
 }
 
 pub async fn delete_task(
@@ -104,8 +104,18 @@ pub async fn delete_task(
 
     println!("{:?}", res);
 
-    Ok(ApiResponse::data(
+    Ok(JsonResponse::data(
         None::<String>,
         Some("Task deleted successfully".to_string()),
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn hello_world() {
+        assert_eq!(1, 1);
+    }
 }

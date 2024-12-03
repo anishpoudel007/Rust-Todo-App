@@ -3,19 +3,19 @@ use serde::Serialize;
 use serde_json::{json, Value};
 
 #[derive(Serialize)]
-pub enum ApiResponse {
+pub enum JsonResponse {
     Error(ErrorResponse),
     Data(DataResponse),
 }
 
-impl ApiResponse {
-    pub fn error(e: impl Serialize, message: Option<String>) -> ApiResponse {
+impl JsonResponse {
+    pub fn error(err: impl Serialize, message: Option<String>) -> JsonResponse {
         Self::Error(ErrorResponse {
-            error: json!(e),
+            error: json!(err),
             message: message.or(Some("An error occured.".to_string())),
         })
     }
-    pub fn data(data: impl Serialize, message: Option<String>) -> ApiResponse {
+    pub fn data(data: impl Serialize, message: Option<String>) -> JsonResponse {
         Self::Data(DataResponse {
             data: json!(data),
             message: message.or(Some("Data retrieved successfully".to_string())),
@@ -39,11 +39,11 @@ pub struct DataResponse {
 //
 //
 
-impl IntoResponse for ApiResponse {
+impl IntoResponse for JsonResponse {
     fn into_response(self) -> axum::response::Response {
         match self {
-            ApiResponse::Error(err) => Json(err).into_response(),
-            ApiResponse::Data(data) => Json(data).into_response(),
+            JsonResponse::Error(err) => Json(err).into_response(),
+            JsonResponse::Data(data) => Json(data).into_response(),
         }
     }
 }

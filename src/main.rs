@@ -11,7 +11,7 @@ mod controller;
 mod error;
 mod form;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct AppState {
     db: DatabaseConnection,
 }
@@ -27,6 +27,19 @@ async fn main() {
         .init();
 
     let server_address = std::env::var("SERVER_ADDRESS").expect("Server Address not found");
+
+    info!("Listening on {}", server_address);
+
+    let listener = TcpListener::bind(server_address.clone())
+        .await
+        .expect("Could not create TCP Listener");
+
+    let app = create_app().await;
+
+    axum::serve(listener, app).await.unwrap();
+}
+
+async fn create_app() -> Router {
     let database_url = std::env::var("DATABASE_URL").expect("Database url not found");
 
     let db = Database::connect(&database_url)
@@ -35,21 +48,40 @@ async fn main() {
 
     let app_state = Arc::new(AppState { db });
 
-    let app = Router::new()
+    Router::new()
         .nest("/api", controller::get_routes().await)
         .with_state(app_state)
         .layer(TraceLayer::new_for_http())
-        .fallback(fallback_handler);
-
-    let listener = TcpListener::bind(server_address.clone())
-        .await
-        .expect("Could not create TCP Listener");
-
-    info!("Listening on {}", server_address);
-
-    axum::serve(listener, app).await.expect("Error");
+        .fallback(fallback_handler)
 }
 
-async fn fallback_handler() -> impl IntoResponse {
+async fn fallback_handler() -> StatusCode {
     StatusCode::NOT_FOUND
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::{body::Body, http::Request};
+    use dotenvy::dotenv;
+    use tower::{Service, ServiceExt};
+
+    #[tokio::test]
+    async fn hello_world() {
+        dotenv().ok();
+
+        let app = create_app().await;
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/tasks")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
 }
