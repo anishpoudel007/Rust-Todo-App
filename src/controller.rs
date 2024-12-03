@@ -57,14 +57,6 @@ pub async fn create_task(
     let task = task.insert(&app_state.db).await?;
 
     Ok(JsonResponse::data(task, None))
-
-    // Ok(ApiResponse {
-    //     success: true,
-    //     data: Some(task),
-    //     error: None,
-    //     message: None,
-    // }
-    // .into_response())
 }
 
 pub async fn get_task(
@@ -82,6 +74,10 @@ pub async fn update_task(
     Json(task): Json<UpdateTaskRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     let task_model = Task::find_by_id(task_id).one(&app_state.db).await?;
+
+    if task_model.is_none() {
+        return Err(AppError::DatabaseError(sqlx::Error::RowNotFound));
+    }
 
     task.validate()?;
 
