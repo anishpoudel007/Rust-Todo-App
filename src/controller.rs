@@ -8,7 +8,7 @@ use axum::{
 };
 
 use entity::prelude::*;
-use entity::tasks;
+use entity::task;
 
 use sea_orm::{ActiveModelTrait, EntityTrait, Set};
 use validator::Validate;
@@ -47,9 +47,9 @@ pub async fn create_task(
 ) -> Result<impl IntoResponse, AppError> {
     task.validate()?;
 
-    let task = tasks::ActiveModel {
+    let task = task::ActiveModel {
         title: Set(task.title),
-        description: Set(task.description),
+        description: Set(task.description.unwrap()),
         status: Set(task.status),
         ..Default::default()
     };
@@ -81,10 +81,10 @@ pub async fn update_task(
 
     task.validate()?;
 
-    let mut task_model: TaskActiveModel = task_model.unwrap().into();
+    let mut task_model: task::ActiveModel = task_model.unwrap().into();
 
     task_model.title = Set(task.title);
-    task_model.description = Set(task.description);
+    task_model.description = Set(task.description.unwrap());
     task_model.status = Set(task.status);
 
     let task_model = task_model.update(&app_state.db).await?;

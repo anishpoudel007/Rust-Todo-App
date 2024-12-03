@@ -8,14 +8,12 @@ use serde::Serialize;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
-    #[sea_orm(column_type = "Text")]
     pub title: String,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub description: Option<String>,
-    #[sea_orm(column_type = "Text")]
+    pub description: String,
+    #[sea_orm(column_type = "custom(\"enum_text\")")]
     pub status: String,
-    pub date_created: Option<DateTimeUtc>,
-    pub date_updated: Option<DateTimeUtc>,
+    pub date_created: DateTime,
+    pub date_updated: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
