@@ -35,22 +35,22 @@ pub async fn get_tasks(
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<impl IntoResponse, AppError> {
     let status = params.get("status");
-    let rows = Task::find().all(&app_state.db).await?;
+    let tasks = Task::find().all(&app_state.db).await?;
 
-    Ok(JsonResponse::data(rows, None))
+    Ok(JsonResponse::data(tasks, None))
 }
 
 #[axum::debug_handler]
 pub async fn create_task(
     State(app_state): State<Arc<AppState>>,
-    Json(task): Json<CreateTaskRequest>,
+    Json(task_request): Json<CreateTaskRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    task.validate()?;
+    task_request.validate()?;
 
     let task = task::ActiveModel {
-        title: Set(task.title),
-        description: Set(task.description.unwrap()),
-        status: Set(task.status),
+        title: Set(task_request.title),
+        description: Set(task_request.description.unwrap()),
+        status: Set(task_request.status),
         ..Default::default()
     };
 
@@ -63,31 +63,31 @@ pub async fn get_task(
     State(app_state): State<Arc<AppState>>,
     Path(task_id): Path<i32>,
 ) -> Result<impl IntoResponse, AppError> {
-    let task_row = Task::find_by_id(task_id).all(&app_state.db).await?;
+    let task = Task::find_by_id(task_id).all(&app_state.db).await?;
 
-    Ok(JsonResponse::data(task_row, None))
+    Ok(JsonResponse::data(task, None))
 }
 
 pub async fn update_task(
     State(app_state): State<Arc<AppState>>,
     Path(task_id): Path<i32>,
-    Json(task): Json<UpdateTaskRequest>,
+    Json(task_request): Json<UpdateTaskRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    let task_model = Task::find_by_id(task_id).one(&app_state.db).await?;
+    let task = Task::find_by_id(task_id).one(&app_state.db).await?;
 
-    if task_model.is_none() {
+    if task.is_none() {
         return Err(AppError::DatabaseError(sqlx::Error::RowNotFound));
     }
 
-    task.validate()?;
+    task_request.validate()?;
 
-    let mut task_model: task::ActiveModel = task_model.unwrap().into();
+    let mut task: task::ActiveModel = task.unwrap().into();
 
-    task_model.title = Set(task.title);
-    task_model.description = Set(task.description.unwrap());
-    task_model.status = Set(task.status);
+    task.title = Set(task_request.title);
+    task.description = Set(task_request.description.unwrap());
+    task.status = Set(task_request.status);
 
-    let task_model = task_model.update(&app_state.db).await?;
+    let task_model = task.update(&app_state.db).await?;
 
     Ok(JsonResponse::data(task_model, None))
 }
