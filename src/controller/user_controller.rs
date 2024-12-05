@@ -1,6 +1,6 @@
 use crate::api_response::JsonResponse;
 use crate::error::AppError;
-use crate::form::{CreateUserRequest, UpdateUserRequest};
+use crate::form::{user_form::CreateUserRequest, user_form::UpdateUserRequest};
 use crate::AppState;
 
 use axum::extract::Query;
@@ -9,7 +9,9 @@ use axum::Json;
 use axum::{extract::Path, extract::State, routing::get, Router};
 
 use entity::{prelude::*, task, user};
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, Set};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait, QueryFilter, Set,
+};
 use validator::Validate;
 
 use std::collections::HashMap;
@@ -76,15 +78,10 @@ pub async fn create_user(
 ) -> Result<impl IntoResponse, AppError> {
     user_request.validate()?;
 
-    let user = user::ActiveModel {
-        name: Set(user_request.name),
-        username: Set(user_request.username),
-        email: Set(user_request.email),
-        password: Set(user_request.password),
-        ..Default::default()
-    };
-
-    let user = user.insert(&app_state.db).await?;
+    let user = user_request
+        .into_active_model()
+        .insert(&app_state.db)
+        .await?;
 
     Ok(JsonResponse::data(user, None))
 }

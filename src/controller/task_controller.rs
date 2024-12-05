@@ -9,13 +9,14 @@ use axum::{
 
 use entity::{prelude::*, task};
 
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, Set};
+use sea_orm::IntoActiveModel;
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 use validator::Validate;
 
 use crate::{
     api_response::JsonResponse,
     error::AppError,
-    form::{CreateTaskRequest, UpdateTaskRequest},
+    form::{task_form::CreateTaskRequest, task_form::UpdateTaskRequest},
     AppState,
 };
 
@@ -51,15 +52,10 @@ pub async fn create_task(
 ) -> Result<impl IntoResponse, AppError> {
     task_request.validate()?;
 
-    let task = task::ActiveModel {
-        title: Set(task_request.title),
-        description: Set(task_request.description.unwrap()),
-        status: Set(task_request.status),
-        user_id: Set(task_request.user_id),
-        ..Default::default()
-    };
-
-    let task = task.insert(&app_state.db).await?;
+    let task = task_request
+        .into_active_model()
+        .insert(&app_state.db)
+        .await?;
 
     Ok(JsonResponse::data(task, None))
 }
