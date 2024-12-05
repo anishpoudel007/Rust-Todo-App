@@ -1,10 +1,9 @@
 use std::sync::Arc;
 
-use axum::{http::StatusCode, response::IntoResponse, Router};
+use axum::{http::StatusCode, Router};
 use sea_orm::{Database, DatabaseConnection};
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
-use tracing::info;
 
 mod api_response;
 mod controller;
@@ -28,7 +27,7 @@ async fn main() {
 
     let server_address = std::env::var("SERVER_ADDRESS").expect("Server Address not found");
 
-    info!("Listening on {}", server_address);
+    tracing::info!("Listening on {}", server_address);
 
     let listener = TcpListener::bind(server_address.clone())
         .await
@@ -49,7 +48,8 @@ async fn create_app() -> Router {
     let app_state = Arc::new(AppState { db });
 
     Router::new()
-        .nest("/api", controller::get_routes().await)
+        .nest("/api", controller::task_controller::get_routes().await)
+        .nest("/api", controller::user_controller::get_routes().await)
         .with_state(app_state)
         .layer(TraceLayer::new_for_http())
         .fallback(fallback_handler)

@@ -11,3 +11,6 @@ test:
 
 lint:
 	cargo clippy --all-targets --all-features
+
+entity:
+	sea-orm-cli generate entity -o entity/src --with-serde serialize

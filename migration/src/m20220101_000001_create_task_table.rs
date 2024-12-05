@@ -25,6 +25,15 @@ impl MigrationTrait for Migration {
                     )
                     .col(date_time(Task::DateCreated).default(Expr::current_timestamp()))
                     .col(string_null(Task::DateUpdated))
+                    .col(integer(Task::UserId))
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-task-user_id")
+                            .from(Task::Table, Task::UserId)
+                            .to(User::Table, User::Id)
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -55,6 +64,8 @@ impl MigrationTrait for Migration {
 enum Task {
     Table,
     Id,
+    #[sea_orm(iden = "user_id")]
+    UserId,
     Title,
     Description,
     Status,
@@ -71,4 +82,10 @@ enum StatusEnum {
     InProgress,
     #[iden = "completed"]
     Completed,
+}
+
+#[derive(DeriveIden)]
+enum User {
+    Table,
+    Id,
 }
