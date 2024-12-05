@@ -6,7 +6,7 @@ use validator::Validate;
 
 #[derive(Debug, Deserialize, Validate, DeriveIntoActiveModel)]
 pub struct CreateUserRequest {
-    #[validate(length(min = 3, message = "Must have at least 10 characters"))]
+    #[validate(length(min = 3, message = "Must have at least 3 characters"))]
     pub name: String,
     pub username: String,
     pub email: String,
@@ -15,7 +15,7 @@ pub struct CreateUserRequest {
 
 #[derive(Debug, Deserialize, Validate)]
 pub struct UpdateUserRequest {
-    #[validate(length(min = 3, message = "Must have at least 10 characters"))]
+    #[validate(length(min = 3, message = "Must have at least 3 characters"))]
     pub name: String,
     pub username: String,
     pub email: String,
