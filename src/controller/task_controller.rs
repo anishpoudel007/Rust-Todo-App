@@ -7,7 +7,7 @@ use axum::{
     Json, Router,
 };
 
-use entity::{prelude::*, task};
+use crate::models::_entities::task;
 
 use sea_orm::IntoActiveModel;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
@@ -34,7 +34,7 @@ pub async fn get_tasks(
     State(app_state): State<Arc<AppState>>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<impl IntoResponse, AppError> {
-    let mut task_query = Task::find();
+    let mut task_query = task::Entity::find();
 
     if let Some(status) = params.get("status") {
         task_query = task_query.filter(task::Column::Status.eq(status))
@@ -64,7 +64,7 @@ pub async fn get_task_detail(
     State(app_state): State<Arc<AppState>>,
     Path(task_id): Path<i32>,
 ) -> Result<impl IntoResponse, AppError> {
-    let task = Task::find_by_id(task_id)
+    let task = task::Entity::find_by_id(task_id)
         .one(&app_state.db)
         .await?
         .ok_or(sqlx::Error::RowNotFound)?;
@@ -77,7 +77,7 @@ pub async fn update_task(
     Path(task_id): Path<i32>,
     Json(task_request): Json<UpdateTaskRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    let task = Task::find_by_id(task_id)
+    let task = task::Entity::find_by_id(task_id)
         .one(&app_state.db)
         .await?
         .ok_or(sqlx::Error::RowNotFound)?;
@@ -97,7 +97,9 @@ pub async fn delete_task(
     State(app_state): State<Arc<AppState>>,
     Path(task_id): Path<i32>,
 ) -> Result<impl IntoResponse, AppError> {
-    let res = Task::delete_by_id(task_id).exec(&app_state.db).await?;
+    let res = task::Entity::delete_by_id(task_id)
+        .exec(&app_state.db)
+        .await?;
 
     println!("{:?}", res);
 

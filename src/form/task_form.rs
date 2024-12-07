@@ -1,4 +1,4 @@
-use entity::task::ActiveModel;
+use crate::models::_entities::task::ActiveModel;
 use sea_orm::DeriveIntoActiveModel;
 
 use serde::{Deserialize, Serialize};
