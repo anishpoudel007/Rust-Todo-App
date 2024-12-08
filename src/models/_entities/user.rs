@@ -12,12 +12,16 @@ pub struct Model {
     pub username: String,
     pub email: String,
     pub password: String,
+    pub date_created: DateTime,
+    pub date_updated: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(has_many = "super::task::Entity")]
     Task,
+    #[sea_orm(has_many = "super::user_profile::Entity")]
+    UserProfile,
 }
 
 impl Related<super::task::Entity> for Entity {
@@ -26,4 +30,8 @@ impl Related<super::task::Entity> for Entity {
     }
 }
 
-impl ActiveModelBehavior for ActiveModel {}
+impl Related<super::user_profile::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UserProfile.def()
+    }
+}

@@ -16,6 +16,8 @@ impl MigrationTrait for Migration {
                     .col(string(User::Username))
                     .col(string(User::Email))
                     .col(string(User::Password))
+                    .col(date_time(User::DateCreated))
+                    .col(date_time_null(User::DateUpdated))
                     .to_owned(),
             )
             .await
@@ -36,4 +38,6 @@ enum User {
     Username,
     Email,
     Password,
+    DateCreated,
+    DateUpdated,
 }

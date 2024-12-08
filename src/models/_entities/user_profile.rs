@@ -4,17 +4,13 @@ use sea_orm::entity::prelude::*;
 use serde::Serialize;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize)]
-#[sea_orm(table_name = "task")]
+#[sea_orm(table_name = "user_profile")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
-    pub title: String,
-    pub description: String,
-    #[sea_orm(column_type = "custom(\"enum_text\")")]
-    pub status: String,
-    pub date_created: DateTime,
-    pub date_updated: Option<String>,
     pub user_id: i32,
+    pub address: Option<String>,
+    pub mobile_number: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -34,5 +30,3 @@ impl Related<super::user::Entity> for Entity {
         Relation::User.def()
     }
 }
-
-impl ActiveModelBehavior for ActiveModel {}

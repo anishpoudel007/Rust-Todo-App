@@ -7,15 +7,16 @@ use axum::{
     Json, Router,
 };
 
-use entity::{prelude::*, task};
+use crate::models::_entities::task;
 
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, Set};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, Set};
+use sea_orm::{IntoActiveModel, QueryOrder};
 use validator::Validate;
 
 use crate::{
     api_response::JsonResponse,
     error::AppError,
-    form::{CreateTaskRequest, UpdateTaskRequest},
+    form::{task_form::CreateTaskRequest, task_form::UpdateTaskRequest},
     AppState,
 };
 
@@ -33,13 +34,22 @@ pub async fn get_tasks(
     State(app_state): State<Arc<AppState>>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<impl IntoResponse, AppError> {
-    let mut task_query = Task::find();
+    let mut task_query = task::Entity::find();
 
     if let Some(status) = params.get("status") {
         task_query = task_query.filter(task::Column::Status.eq(status))
     }
 
-    let tasks = task_query.all(&app_state.db).await?;
+    let page = params
+        .get("page")
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(1);
+
+    let tasks = task_query
+        .order_by(task::Column::DateCreated, sea_orm::Order::Desc)
+        .paginate(&app_state.db, 1)
+        .fetch_page(page - 1)
+        .await?;
 
     Ok(JsonResponse::data(tasks, None))
 }
@@ -51,15 +61,10 @@ pub async fn create_task(
 ) -> Result<impl IntoResponse, AppError> {
     task_request.validate()?;
 
-    let task = task::ActiveModel {
-        title: Set(task_request.title),
-        description: Set(task_request.description.unwrap()),
-        status: Set(task_request.status),
-        user_id: Set(task_request.user_id),
-        ..Default::default()
-    };
-
-    let task = task.insert(&app_state.db).await?;
+    let task = task_request
+        .into_active_model()
+        .insert(&app_state.db)
+        .await?;
 
     Ok(JsonResponse::data(task, None))
 }
@@ -68,7 +73,7 @@ pub async fn get_task_detail(
     State(app_state): State<Arc<AppState>>,
     Path(task_id): Path<i32>,
 ) -> Result<impl IntoResponse, AppError> {
-    let task = Task::find_by_id(task_id)
+    let task = task::Entity::find_by_id(task_id)
         .one(&app_state.db)
         .await?
         .ok_or(sqlx::Error::RowNotFound)?;
@@ -81,7 +86,7 @@ pub async fn update_task(
     Path(task_id): Path<i32>,
     Json(task_request): Json<UpdateTaskRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    let task = Task::find_by_id(task_id)
+    let task = task::Entity::find_by_id(task_id)
         .one(&app_state.db)
         .await?
         .ok_or(sqlx::Error::RowNotFound)?;
@@ -101,7 +106,9 @@ pub async fn delete_task(
     State(app_state): State<Arc<AppState>>,
     Path(task_id): Path<i32>,
 ) -> Result<impl IntoResponse, AppError> {
-    let res = Task::delete_by_id(task_id).exec(&app_state.db).await?;
+    let res = task::Entity::delete_by_id(task_id)
+        .exec(&app_state.db)
+        .await?;
 
     println!("{:?}", res);
 

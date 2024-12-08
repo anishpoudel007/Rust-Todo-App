@@ -9,6 +9,7 @@ mod api_response;
 mod controller;
 mod error;
 mod form;
+mod models;
 
 #[derive(Clone, Debug)]
 struct AppState {

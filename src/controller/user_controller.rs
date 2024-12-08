@@ -1,6 +1,6 @@
 use crate::api_response::JsonResponse;
 use crate::error::AppError;
-use crate::form::{CreateUserRequest, UpdateUserRequest};
+use crate::form::{user_form::CreateUserRequest, user_form::UpdateUserRequest};
 use crate::AppState;
 
 use axum::extract::Query;
@@ -8,9 +8,13 @@ use axum::response::IntoResponse;
 use axum::Json;
 use axum::{extract::Path, extract::State, routing::get, Router};
 
-use entity::{prelude::*, task, user};
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, Set};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, DbErr, EntityTrait, IntoActiveModel, ModelTrait, PaginatorTrait,
+    QueryFilter, QueryOrder, Set, TransactionTrait,
+};
 use validator::Validate;
+
+use crate::models::_entities::{task, user, user_profile};
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -29,13 +33,32 @@ pub async fn get_users(
     State(app_state): State<Arc<AppState>>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<impl IntoResponse, AppError> {
-    let mut user_query = User::find();
+    let mut user_query = user::Entity::find().find_also_related(user_profile::Entity);
 
     if let Some(name) = params.get("name") {
         user_query = user_query.filter(user::Column::Name.contains(name));
     }
 
-    let users = user_query.all(&app_state.db).await?;
+    if let Some(username) = params.get("username") {
+        user_query = user_query.filter(user::Column::Username.contains(username));
+    }
+
+    if let Some(email) = params.get("email") {
+        user_query = user_query.filter(user::Column::Email.contains(email));
+    }
+
+    println!("{:?}", user_query.to_owned());
+
+    let page = params
+        .get("page")
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(1);
+
+    let users = user_query
+        .order_by(user::Column::DateCreated, sea_orm::Order::Desc)
+        .paginate(&app_state.db, 1)
+        .fetch_page(page - 1)
+        .await?;
 
     Ok(JsonResponse::data(users, None))
 }
@@ -44,7 +67,7 @@ pub async fn get_user_detail(
     State(app_state): State<Arc<AppState>>,
     Path(user_id): Path<i32>,
 ) -> Result<impl IntoResponse, AppError> {
-    let users = User::find_by_id(user_id)
+    let users = user::Entity::find_by_id(user_id)
         .one(&app_state.db)
         .await?
         .ok_or(sqlx::Error::RowNotFound)?;
@@ -56,13 +79,13 @@ pub async fn get_tasks(
     State(app_state): State<Arc<AppState>>,
     Path(user_id): Path<i32>,
 ) -> Result<impl IntoResponse, AppError> {
-    let user = User::find_by_id(user_id)
+    let user = user::Entity::find_by_id(user_id)
         .one(&app_state.db)
         .await?
         .ok_or(sqlx::Error::RowNotFound)?;
 
     let tasks = user
-        .find_related(Task)
+        .find_related(task::Entity)
         .filter(task::Column::Title.contains("updated"))
         .all(&app_state.db)
         .await?;
@@ -70,21 +93,36 @@ pub async fn get_tasks(
     Ok(JsonResponse::data(tasks, None))
 }
 
+#[axum::debug_handler]
 pub async fn create_user(
     State(app_state): State<Arc<AppState>>,
     Json(user_request): Json<CreateUserRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     user_request.validate()?;
 
-    let user = user::ActiveModel {
-        name: Set(user_request.name),
-        username: Set(user_request.username),
-        email: Set(user_request.email),
-        password: Set(user_request.password),
-        ..Default::default()
-    };
+    let address = String::from("N/A");
+    let mobile_number = String::from("N/A");
 
-    let user = user.insert(&app_state.db).await?;
+    let user = app_state
+        .db
+        .transaction::<_, user::Model, DbErr>(|txn| {
+            Box::pin(async move {
+                let user = user_request.into_active_model().insert(txn).await?;
+
+                user_profile::ActiveModel {
+                    id: sea_orm::ActiveValue::NotSet,
+                    user_id: Set(user.id),
+                    address: Set(Some(address)),
+                    mobile_number: Set(Some(mobile_number)),
+                }
+                .insert(txn)
+                .await?;
+
+                Ok(user)
+            })
+        })
+        .await
+        .map_err(|e| AppError::GenericError(e.to_string()))?; // should be database error
 
     Ok(JsonResponse::data(user, None))
 }
@@ -94,7 +132,7 @@ pub async fn update_user(
     Path(user_id): Path<i32>,
     Json(user_request): Json<UpdateUserRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    let user = User::find_by_id(user_id)
+    let user = user::Entity::find_by_id(user_id)
         .one(&app_state.db)
         .await?
         .ok_or(sqlx::Error::RowNotFound)?;
@@ -117,7 +155,9 @@ pub async fn delete_user(
     State(app_state): State<Arc<AppState>>,
     Path(user_id): Path<i32>,
 ) -> Result<impl IntoResponse, AppError> {
-    let res = User::delete_by_id(user_id).exec(&app_state.db).await?;
+    let res = user::Entity::delete_by_id(user_id)
+        .exec(&app_state.db)
+        .await?;
 
     println!("{:?}", res);
 
