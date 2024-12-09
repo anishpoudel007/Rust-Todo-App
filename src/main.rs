@@ -10,6 +10,7 @@ mod controller;
 mod error;
 mod form;
 mod models;
+mod serializer;
 
 #[derive(Clone, Debug)]
 struct AppState {

@@ -1,6 +1,7 @@
 use crate::api_response::JsonResponse;
 use crate::error::AppError;
 use crate::form::{user_form::CreateUserRequest, user_form::UpdateUserRequest};
+use crate::serializer::UserWithProfileSerializer;
 use crate::AppState;
 
 use axum::extract::Query;
@@ -12,6 +13,7 @@ use sea_orm::{
     ActiveModelTrait, ColumnTrait, DbErr, EntityTrait, IntoActiveModel, ModelTrait, PaginatorTrait,
     QueryFilter, QueryOrder, Set, TransactionTrait,
 };
+use serde::Serialize;
 use validator::Validate;
 
 use crate::models::_entities::{task, user, user_profile};
@@ -60,19 +62,33 @@ pub async fn get_users(
         .fetch_page(page - 1)
         .await?;
 
-    Ok(JsonResponse::data(users, None))
+    let users_with_profile: Vec<UserWithProfileSerializer> = users
+        .iter()
+        .map(|(user, user_profile)| {
+            UserWithProfileSerializer::from_user_and_profile_model(
+                user.clone(),
+                user_profile.clone(),
+            )
+        })
+        .collect();
+
+    Ok(JsonResponse::data(users_with_profile, None))
 }
 
 pub async fn get_user_detail(
     State(app_state): State<Arc<AppState>>,
     Path(user_id): Path<i32>,
 ) -> Result<impl IntoResponse, AppError> {
-    let users = user::Entity::find_by_id(user_id)
+    let user = user::Entity::find_by_id(user_id)
+        .find_also_related(user_profile::Entity)
         .one(&app_state.db)
         .await?
         .ok_or(sqlx::Error::RowNotFound)?;
 
-    Ok(JsonResponse::data(users, None))
+    let user_with_profile_serializer =
+        UserWithProfileSerializer::from_user_and_profile_model(user.0, user.1);
+
+    Ok(JsonResponse::data(user_with_profile_serializer, None))
 }
 
 pub async fn get_tasks(
