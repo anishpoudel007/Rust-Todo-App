@@ -56,7 +56,7 @@ pub async fn get_users(
 
     let users: Vec<UserWithProfileSerializer> = user_query
         .order_by(user::Column::DateCreated, sea_orm::Order::Desc)
-        .paginate(&app_state.db, 1)
+        .paginate(&app_state.db, 10)
         .fetch_page(page - 1)
         .await?
         .iter()
@@ -108,20 +108,19 @@ pub async fn create_user(
 ) -> Result<impl IntoResponse, AppError> {
     user_request.validate()?;
 
-    let address = String::from("N/A");
-    let mobile_number = String::from("N/A");
-
     let user_model = app_state
         .db
         .transaction::<_, user::Model, DbErr>(|txn| {
             Box::pin(async move {
-                let user = user_request.into_active_model().insert(txn).await?;
+                let user = user::ActiveModel::from(user_request.clone())
+                    .insert(txn)
+                    .await?;
 
                 user_profile::ActiveModel {
                     id: sea_orm::ActiveValue::NotSet,
                     user_id: Set(user.id),
-                    address: Set(Some(address)),
-                    mobile_number: Set(Some(mobile_number)),
+                    address: Set(Some(user_request.address)),
+                    mobile_number: Set(Some(user_request.mobile_number)),
                 }
                 .insert(txn)
                 .await?;
