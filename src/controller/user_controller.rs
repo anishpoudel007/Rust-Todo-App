@@ -1,7 +1,7 @@
 use crate::api_response::JsonResponse;
 use crate::error::AppError;
 use crate::form::{user_form::CreateUserRequest, user_form::UpdateUserRequest};
-use crate::serializer::{UserSerializer, UserWithProfileSerializer};
+use crate::serializer::{TaskSerializer, UserSerializer, UserWithProfileSerializer};
 use crate::AppState;
 
 use axum::extract::Query;
@@ -89,11 +89,14 @@ pub async fn get_tasks(
         .await?
         .ok_or(sqlx::Error::RowNotFound)?;
 
-    let tasks = user
+    let tasks: Vec<TaskSerializer> = user
         .find_related(task::Entity)
         .filter(task::Column::Title.contains("updated"))
         .all(&app_state.db)
-        .await?;
+        .await?
+        .iter()
+        .map(|task| TaskSerializer::from(task.clone()))
+        .collect();
 
     Ok(JsonResponse::data(tasks, None))
 }

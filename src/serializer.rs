@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::models::_entities::{user, user_profile};
+use crate::models::_entities::{task, user, user_profile};
 
 #[derive(Debug, Serialize)]
 pub struct UserSerializer {
@@ -36,6 +36,29 @@ impl From<(user::Model, Option<user_profile::Model>)> for UserWithProfileSeriali
             username: user.username,
             email: user.email,
             profile,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct TaskSerializer {
+    pub id: i32,
+    pub title: String,
+    pub description: String,
+    pub status: String,
+    pub date_created: chrono::naive::NaiveDateTime,
+    pub date_updated: Option<String>,
+}
+
+impl From<task::Model> for TaskSerializer {
+    fn from(value: task::Model) -> Self {
+        Self {
+            id: value.id,
+            title: value.title,
+            description: value.description,
+            status: value.status,
+            date_created: value.date_created,
+            date_updated: value.date_updated,
         }
     }
 }

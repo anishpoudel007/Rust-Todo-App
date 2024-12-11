@@ -7,7 +7,7 @@ use axum::{
     Json, Router,
 };
 
-use crate::models::_entities::task;
+use crate::{models::_entities::task, serializer::TaskSerializer};
 
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, Set};
 use sea_orm::{IntoActiveModel, QueryOrder};
@@ -45,11 +45,14 @@ pub async fn get_tasks(
         .and_then(|s| s.parse::<u64>().ok())
         .unwrap_or(1);
 
-    let tasks = task_query
+    let tasks: Vec<TaskSerializer> = task_query
         .order_by(task::Column::DateCreated, sea_orm::Order::Desc)
         .paginate(&app_state.db, 1)
         .fetch_page(page - 1)
-        .await?;
+        .await?
+        .iter()
+        .map(|task| TaskSerializer::from(task.clone()))
+        .collect();
 
     Ok(JsonResponse::data(tasks, None))
 }
@@ -61,10 +64,11 @@ pub async fn create_task(
 ) -> Result<impl IntoResponse, AppError> {
     task_request.validate()?;
 
-    let task = task_request
+    let task: TaskSerializer = task_request
         .into_active_model()
         .insert(&app_state.db)
-        .await?;
+        .await?
+        .into();
 
     Ok(JsonResponse::data(task, None))
 }
@@ -73,10 +77,11 @@ pub async fn get_task_detail(
     State(app_state): State<Arc<AppState>>,
     Path(task_id): Path<i32>,
 ) -> Result<impl IntoResponse, AppError> {
-    let task = task::Entity::find_by_id(task_id)
+    let task: TaskSerializer = task::Entity::find_by_id(task_id)
         .one(&app_state.db)
         .await?
-        .ok_or(sqlx::Error::RowNotFound)?;
+        .ok_or(sqlx::Error::RowNotFound)?
+        .into();
 
     Ok(JsonResponse::data(task, None))
 }
@@ -97,9 +102,9 @@ pub async fn update_task(
     task.description = Set(task_request.description.unwrap());
     task.status = Set(task_request.status);
 
-    let task_model = task.update(&app_state.db).await?;
+    let task_serializer: TaskSerializer = task.update(&app_state.db).await?.into();
 
-    Ok(JsonResponse::data(task_model, None))
+    Ok(JsonResponse::data(task_serializer, None))
 }
 
 pub async fn delete_task(
