@@ -1,25 +1,24 @@
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use axum::{
+    extract::{Path, Query, State},
+    response::IntoResponse,
+    routing::get,
+    Json, Router,
+};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue::NotSet, ColumnTrait, DbErr, EntityTrait, ModelTrait,
+    PaginatorTrait, QueryFilter, QueryOrder, Set, TransactionTrait,
+};
+use validator::Validate;
+
 use crate::api_response::JsonResponse;
 use crate::error::AppError;
 use crate::form::{user_form::CreateUserRequest, user_form::UpdateUserRequest};
+use crate::models::_entities::{task, user, user_profile};
 use crate::serializer::{TaskSerializer, UserSerializer, UserWithProfileSerializer};
 use crate::AppState;
-
-use axum::extract::Query;
-use axum::response::IntoResponse;
-use axum::Json;
-use axum::{extract::Path, extract::State, routing::get, Router};
-
-use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DbErr, EntityTrait, IntoActiveModel, ModelTrait, PaginatorTrait,
-    QueryFilter, QueryOrder, Set, TransactionTrait,
-};
-use serde::Serialize;
-use validator::Validate;
-
-use crate::models::_entities::{task, user, user_profile};
-
-use std::collections::HashMap;
-use std::sync::Arc;
 
 pub async fn get_routes() -> Router<Arc<AppState>> {
     Router::new()
@@ -56,7 +55,7 @@ pub async fn get_users(
 
     let users: Vec<UserWithProfileSerializer> = user_query
         .order_by(user::Column::DateCreated, sea_orm::Order::Desc)
-        .paginate(&app_state.db, 1)
+        .paginate(&app_state.db, 10)
         .fetch_page(page - 1)
         .await?
         .iter()
@@ -108,31 +107,30 @@ pub async fn create_user(
 ) -> Result<impl IntoResponse, AppError> {
     user_request.validate()?;
 
-    let address = String::from("N/A");
-    let mobile_number = String::from("N/A");
-
-    let user_model = app_state
+    let user_with_profile = app_state
         .db
-        .transaction::<_, user::Model, DbErr>(|txn| {
+        .transaction::<_, (user::Model, Option<user_profile::Model>), DbErr>(|txn| {
             Box::pin(async move {
-                let user = user_request.into_active_model().insert(txn).await?;
+                let user = user::ActiveModel::from(user_request.clone())
+                    .insert(txn)
+                    .await?;
 
-                user_profile::ActiveModel {
+                let user_profile = user_profile::ActiveModel {
                     id: sea_orm::ActiveValue::NotSet,
                     user_id: Set(user.id),
-                    address: Set(Some(address)),
-                    mobile_number: Set(Some(mobile_number)),
+                    address: Set(Some(user_request.address)),
+                    mobile_number: Set(Some(user_request.mobile_number)),
                 }
                 .insert(txn)
                 .await?;
 
-                Ok(user)
+                Ok((user, Some(user_profile)))
             })
         })
         .await
         .map_err(|e| AppError::GenericError(e.to_string()))?; // should be database error
 
-    let user_serializer: UserSerializer = user_model.into();
+    let user_serializer = UserWithProfileSerializer::from(user_with_profile);
 
     Ok(JsonResponse::data(user_serializer, None))
 }
@@ -151,10 +149,15 @@ pub async fn update_user(
 
     let mut user: user::ActiveModel = user.into();
 
+    let password = match user_request.password {
+        Some(pwd) => Set(pwd),
+        None => NotSet,
+    };
+
     user.name = Set(user_request.name);
     user.username = Set(user_request.username);
     user.email = Set(user_request.email);
-    user.password = Set(user_request.password);
+    user.password = password;
 
     let user_serializer: UserSerializer = user.update(&app_state.db).await?.into();
 

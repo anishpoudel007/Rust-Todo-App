@@ -6,11 +6,10 @@ use axum::{
     routing::get,
     Json, Router,
 };
-
-use crate::{models::_entities::task, serializer::TaskSerializer};
-
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, Set};
-use sea_orm::{IntoActiveModel, QueryOrder};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter,
+    QueryOrder, Set,
+};
 use validator::Validate;
 
 use crate::{
@@ -19,6 +18,7 @@ use crate::{
     form::{task_form::CreateTaskRequest, task_form::UpdateTaskRequest},
     AppState,
 };
+use crate::{models::_entities::task, serializer::TaskSerializer};
 
 pub async fn get_routes() -> Router<Arc<AppState>> {
     Router::new()
