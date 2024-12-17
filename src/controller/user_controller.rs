@@ -8,13 +8,16 @@ use axum::{
     Json, Router,
 };
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::NotSet, ColumnTrait, DbErr, EntityTrait, ModelTrait,
-    PaginatorTrait, QueryFilter, QueryOrder, Set, TransactionTrait,
+    sea_query::ExprTrait, ActiveModelTrait, ActiveValue::NotSet, ColumnTrait, DbErr, EntityTrait,
+    ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, Set, TransactionTrait,
 };
 use validator::Validate;
 
-use crate::form::{user_form::CreateUserRequest, user_form::UpdateUserRequest};
-use crate::models::_entities::{task, user, user_profile};
+use crate::form::{
+    role_form::UpdateUserRolesRequest,
+    user_form::{CreateUserRequest, UpdateUserRequest},
+};
+use crate::models::_entities::{task, user, user_profile, user_role};
 use crate::serializer::{TaskSerializer, UserSerializer, UserWithProfileSerializer};
 use crate::AppState;
 use crate::{
@@ -31,7 +34,10 @@ pub async fn get_routes() -> Router<Arc<AppState>> {
             get(get_user).put(update_user).delete(delete_user),
         )
         .route("/users/:user_id/tasks", get(get_user_tasks))
-        .route("/users/:user_id/roles", get(get_user_roles))
+        .route(
+            "/users/:user_id/roles",
+            get(get_user_roles).post(create_user_roles),
+        )
 }
 
 #[axum::debug_handler()]
@@ -216,4 +222,65 @@ pub async fn get_user_roles(
         .collect();
 
     Ok(JsonResponse::data(role_serializer, None))
+}
+
+#[axum::debug_handler()]
+pub async fn create_user_roles(
+    State(app_state): State<Arc<AppState>>,
+    Path(user_id): Path<i32>,
+    Json(user_roles_request): Json<UpdateUserRolesRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    let _user = user::Entity::find_by_id(user_id)
+        .one(&app_state.db)
+        .await?
+        .ok_or(sqlx::Error::RowNotFound)?;
+
+    if user_roles_request.roles.is_empty() {
+        return Err(AppError::GenericError("Empty roles".to_string()));
+    }
+
+    let roles_from_user: Vec<String> = user::Entity::find_by_id(user_id)
+        .find_with_related(role::Entity)
+        .filter(role::Column::Name.is_in(user_roles_request.roles.clone()))
+        .all(&app_state.db)
+        .await?
+        .iter()
+        .flat_map(|(_, roles)| roles.iter().map(|value| value.name.clone()))
+        .collect();
+
+    let new_roles: Vec<String> = user_roles_request
+        .roles
+        .into_iter()
+        .filter(|value| !roles_from_user.contains(value))
+        .collect();
+
+    if new_roles.is_empty() {
+        return Ok(JsonResponse::data(
+            None::<String>,
+            Some("Successfully added.".to_string()),
+        ));
+    }
+
+    let new_roles = role::Entity::find()
+        .filter(role::Column::Name.is_in(new_roles))
+        .all(&app_state.db)
+        .await?;
+
+    let user_roles: Vec<user_role::ActiveModel> = new_roles
+        .iter()
+        .map(|new_role| user_role::ActiveModel {
+            id: NotSet,
+            user_id: Set(user_id),
+            role_id: Set(new_role.id),
+        })
+        .collect();
+
+    user_role::Entity::insert_many(user_roles)
+        .exec(&app_state.db)
+        .await?;
+
+    Ok(JsonResponse::data(
+        new_roles,
+        Some("Roles added successfully".to_string()),
+    ))
 }
