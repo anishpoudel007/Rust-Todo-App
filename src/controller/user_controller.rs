@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use axum::{
-    extract::{Path, Query, State},
+    extract::{OriginalUri, Path, Query, State},
     response::IntoResponse,
     routing::get,
     Json, Router,
@@ -13,26 +13,32 @@ use sea_orm::{
 };
 use validator::Validate;
 
-use crate::api_response::JsonResponse;
-use crate::error::AppError;
 use crate::form::{user_form::CreateUserRequest, user_form::UpdateUserRequest};
 use crate::models::_entities::{task, user, user_profile};
 use crate::serializer::{TaskSerializer, UserSerializer, UserWithProfileSerializer};
 use crate::AppState;
+use crate::{
+    api_response::{JsonResponse, ResponseMetadata},
+    models::_entities::role,
+};
+use crate::{error::AppError, serializer::RoleSerializer};
 
 pub async fn get_routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/users", get(get_users).post(create_user))
         .route(
             "/users/:user_id",
-            get(get_user_detail).put(update_user).delete(delete_user),
+            get(get_user).put(update_user).delete(delete_user),
         )
-        .route("/users/:user_id/tasks", get(get_tasks))
+        .route("/users/:user_id/tasks", get(get_user_tasks))
+        .route("/users/:user_id/roles", get(get_user_roles))
 }
 
+#[axum::debug_handler()]
 pub async fn get_users(
     State(app_state): State<Arc<AppState>>,
     Query(params): Query<HashMap<String, String>>,
+    OriginalUri(original_uri): OriginalUri,
 ) -> Result<impl IntoResponse, AppError> {
     let mut user_query = user::Entity::find().find_also_related(user_profile::Entity);
 
@@ -53,6 +59,16 @@ pub async fn get_users(
         .and_then(|s| s.parse::<u64>().ok())
         .unwrap_or(1);
 
+    let users_count = user_query.clone().count(&app_state.db).await?;
+
+    let response_metadata = ResponseMetadata {
+        count: users_count,
+        per_page: 10,
+        total_page: users_count.div_ceil(10),
+        current_url: Some(original_uri.to_string()),
+        ..Default::default()
+    };
+
     let users: Vec<UserWithProfileSerializer> = user_query
         .order_by(user::Column::DateCreated, sea_orm::Order::Desc)
         .paginate(&app_state.db, 10)
@@ -62,10 +78,11 @@ pub async fn get_users(
         .map(|user_with_profile| UserWithProfileSerializer::from(user_with_profile.clone()))
         .collect();
 
-    Ok(JsonResponse::data(users, None))
+    Ok(JsonResponse::paginate(users, response_metadata, None))
 }
 
-pub async fn get_user_detail(
+#[axum::debug_handler()]
+pub async fn get_user(
     State(app_state): State<Arc<AppState>>,
     Path(user_id): Path<i32>,
 ) -> Result<impl IntoResponse, AppError> {
@@ -77,27 +94,6 @@ pub async fn get_user_detail(
         .into();
 
     Ok(JsonResponse::data(user, None))
-}
-
-pub async fn get_tasks(
-    State(app_state): State<Arc<AppState>>,
-    Path(user_id): Path<i32>,
-) -> Result<impl IntoResponse, AppError> {
-    let user = user::Entity::find_by_id(user_id)
-        .one(&app_state.db)
-        .await?
-        .ok_or(sqlx::Error::RowNotFound)?;
-
-    let tasks: Vec<TaskSerializer> = user
-        .find_related(task::Entity)
-        .filter(task::Column::Title.contains("updated"))
-        .all(&app_state.db)
-        .await?
-        .iter()
-        .map(|task| TaskSerializer::from(task.clone()))
-        .collect();
-
-    Ok(JsonResponse::data(tasks, None))
 }
 
 #[axum::debug_handler]
@@ -135,6 +131,7 @@ pub async fn create_user(
     Ok(JsonResponse::data(user_serializer, None))
 }
 
+#[axum::debug_handler()]
 pub async fn update_user(
     State(app_state): State<Arc<AppState>>,
     Path(user_id): Path<i32>,
@@ -164,6 +161,7 @@ pub async fn update_user(
     Ok(JsonResponse::data(user_serializer, None))
 }
 
+#[axum::debug_handler()]
 pub async fn delete_user(
     State(app_state): State<Arc<AppState>>,
     Path(user_id): Path<i32>,
@@ -178,4 +176,44 @@ pub async fn delete_user(
         None::<String>,
         Some("User deleted successfully".to_string()),
     ))
+}
+
+#[axum::debug_handler()]
+pub async fn get_user_tasks(
+    State(app_state): State<Arc<AppState>>,
+    Path(user_id): Path<i32>,
+) -> Result<impl IntoResponse, AppError> {
+    let user = user::Entity::find_by_id(user_id)
+        .one(&app_state.db)
+        .await?
+        .ok_or(sqlx::Error::RowNotFound)?;
+
+    let tasks: Vec<TaskSerializer> = user
+        .find_related(task::Entity)
+        .all(&app_state.db)
+        .await?
+        .iter()
+        .map(|task| TaskSerializer::from(task.clone()))
+        .collect();
+
+    Ok(JsonResponse::data(tasks, None))
+}
+
+#[axum::debug_handler()]
+pub async fn get_user_roles(
+    State(app_state): State<Arc<AppState>>,
+    Path(user_id): Path<i32>,
+) -> Result<impl IntoResponse, AppError> {
+    let user_with_roles = user::Entity::find_by_id(user_id)
+        .find_with_related(role::Entity)
+        .all(&app_state.db)
+        .await?;
+
+    let role_serializer: Vec<RoleSerializer> = user_with_roles
+        .iter()
+        .flat_map(|(_, auth_role)| auth_role.clone())
+        .map(RoleSerializer::from)
+        .collect();
+
+    Ok(JsonResponse::data(role_serializer, None))
 }

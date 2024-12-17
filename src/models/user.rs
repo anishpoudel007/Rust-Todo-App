@@ -1,6 +1,19 @@
-use sea_orm::{ActiveModelBehavior, ConnectionTrait, DbErr};
+use sea_orm::{ActiveModelBehavior, ConnectionTrait, DbErr, Related, RelationDef, RelationTrait};
 
-use super::_entities::user::ActiveModel;
+use super::_entities::{
+    role,
+    user::{ActiveModel, Entity},
+    user_role,
+};
+
+impl Related<role::Entity> for Entity {
+    fn to() -> RelationDef {
+        user_role::Relation::Role.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(user_role::Relation::User.def().rev())
+    }
+}
 
 #[async_trait::async_trait]
 impl ActiveModelBehavior for ActiveModel {

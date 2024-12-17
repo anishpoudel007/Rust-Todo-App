@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::models::_entities::{task, user, user_profile};
+use crate::models::_entities::{permission, role, task, user, user_profile};
 
 #[derive(Debug, Serialize)]
 pub struct UserSerializer {
@@ -82,6 +82,38 @@ impl From<task::Model> for TaskSerializer {
             status: value.status,
             date_created: value.date_created,
             date_updated: value.date_updated,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct PermissionSerializer {
+    pub id: i32,
+    pub name: String,
+    pub code_name: String,
+}
+
+impl From<permission::Model> for PermissionSerializer {
+    fn from(value: permission::Model) -> Self {
+        Self {
+            id: value.id,
+            name: value.name,
+            code_name: value.code_name,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct RoleSerializer {
+    pub id: i32,
+    pub name: String,
+}
+
+impl From<role::Model> for RoleSerializer {
+    fn from(value: role::Model) -> Self {
+        Self {
+            id: value.id,
+            name: value.name,
         }
     }
 }

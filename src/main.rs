@@ -6,11 +6,14 @@ use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
 
 mod api_response;
+mod auth;
 mod controller;
 mod error;
 mod form;
+mod middlewares;
 mod models;
 mod serializer;
+mod utils;
 
 #[derive(Clone, Debug)]
 struct AppState {
@@ -52,9 +55,25 @@ async fn create_app() -> Router {
     Router::new()
         .nest("/api", controller::task_controller::get_routes().await)
         .nest("/api", controller::user_controller::get_routes().await)
+        .nest(
+            "/api",
+            controller::permission_controller::get_routes().await,
+        )
+        .nest("/api", controller::role_controller::get_routes().await)
+        .nest("/api", controller::user_role_controller::get_routes().await)
+        // .nest("/api", controller::auth_controller::get_routes().await)
+        .nest(
+            "/api",
+            controller::auth_controller::get_logout_route().await,
+        )
+        .route_layer(axum::middleware::from_fn_with_state(
+            app_state.clone(),
+            middlewares::auth_guard::auth_guard,
+        ))
+        .nest("/api", controller::auth_controller::get_login_route().await)
         .with_state(app_state)
-        .layer(TraceLayer::new_for_http())
         .fallback(fallback_handler)
+        .layer(TraceLayer::new_for_http())
 }
 
 async fn fallback_handler() -> StatusCode {

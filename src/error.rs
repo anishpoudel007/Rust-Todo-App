@@ -11,6 +11,7 @@ pub enum AppError {
     GenericError(String),
     SeaOrm(sea_orm::DbErr),
     Validation(validator::ValidationErrors),
+    Unauthorized(String),
 }
 
 impl From<sqlx::Error> for AppError {
@@ -49,6 +50,10 @@ impl IntoResponse for AppError {
             AppError::Validation(validation_errors) => {
                 (StatusCode::BAD_REQUEST, validation_errors.to_string())
             }
+            AppError::Unauthorized(_) => (
+                StatusCode::UNAUTHORIZED,
+                "You are not authorized.".to_string(),
+            ),
         };
 
         (

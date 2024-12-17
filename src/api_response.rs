@@ -6,6 +6,7 @@ use serde_json::{json, Value};
 pub enum JsonResponse {
     Error(ErrorResponse),
     Data(DataResponse),
+    Paginate(PaginatedResponse),
 }
 
 impl JsonResponse {
@@ -17,6 +18,17 @@ impl JsonResponse {
     }
     pub fn data(data: impl Serialize, message: Option<String>) -> JsonResponse {
         Self::Data(DataResponse {
+            data: json!(data),
+            message: message.or(Some("Data retrieved successfully".to_string())),
+        })
+    }
+    pub fn paginate(
+        data: impl Serialize,
+        metadata: ResponseMetadata,
+        message: Option<String>,
+    ) -> JsonResponse {
+        Self::Paginate(PaginatedResponse {
+            _metadata: metadata,
             data: json!(data),
             message: message.or(Some("Data retrieved successfully".to_string())),
         })
@@ -35,6 +47,25 @@ pub struct DataResponse {
     pub message: Option<String>,
 }
 
+#[derive(Debug, Serialize, Default)]
+pub struct ResponseMetadata {
+    pub count: u64,
+    pub per_page: u64,
+    pub total_page: u64,
+    pub first_page_url: Option<String>,
+    pub last_page_url: Option<String>,
+    pub previous_url: Option<String>,
+    pub current_url: Option<String>,
+    pub next_url: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PaginatedResponse {
+    pub data: Value,
+    pub _metadata: ResponseMetadata,
+    pub message: Option<String>,
+}
+
 // error: [{"title": ["Row not found", "hello"]}, {"email": ["Not valid", ""]}]
 //
 //
@@ -44,6 +75,7 @@ impl IntoResponse for JsonResponse {
         match self {
             JsonResponse::Error(err) => Json(err).into_response(),
             JsonResponse::Data(data) => Json(data).into_response(),
+            JsonResponse::Paginate(paginated_response) => Json(paginated_response).into_response(),
         }
     }
 }

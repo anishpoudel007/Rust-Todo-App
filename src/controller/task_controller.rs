@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use axum::{
-    extract::{Path, Query, State},
+    extract::{OriginalUri, Path, Query, State},
     response::IntoResponse,
     routing::get,
     Json, Router,
@@ -13,19 +13,20 @@ use sea_orm::{
 use validator::Validate;
 
 use crate::{
-    api_response::JsonResponse,
+    api_response::{JsonResponse, ResponseMetadata},
     error::AppError,
-    form::{task_form::CreateTaskRequest, task_form::UpdateTaskRequest},
+    form::task_form::{CreateTaskRequest, UpdateTaskRequest},
+    models::_entities::task,
+    serializer::TaskSerializer,
     AppState,
 };
-use crate::{models::_entities::task, serializer::TaskSerializer};
 
 pub async fn get_routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/tasks", get(get_tasks).post(create_task))
         .route(
             "/tasks/:task_id",
-            get(get_task_detail).put(update_task).delete(delete_task),
+            get(get_task).put(update_task).delete(delete_task),
         )
 }
 
@@ -33,6 +34,7 @@ pub async fn get_routes() -> Router<Arc<AppState>> {
 pub async fn get_tasks(
     State(app_state): State<Arc<AppState>>,
     Query(params): Query<HashMap<String, String>>,
+    OriginalUri(original_uri): OriginalUri,
 ) -> Result<impl IntoResponse, AppError> {
     let mut task_query = task::Entity::find();
 
@@ -45,16 +47,26 @@ pub async fn get_tasks(
         .and_then(|s| s.parse::<u64>().ok())
         .unwrap_or(1);
 
+    let task_count = task_query.clone().count(&app_state.db).await?;
+
+    let response_metadata = ResponseMetadata {
+        count: task_count,
+        per_page: 10,
+        total_page: task_count.div_ceil(10),
+        current_url: Some(original_uri.to_string()),
+        ..Default::default()
+    };
+
     let tasks: Vec<TaskSerializer> = task_query
         .order_by(task::Column::DateCreated, sea_orm::Order::Desc)
-        .paginate(&app_state.db, 1)
+        .paginate(&app_state.db, 10)
         .fetch_page(page - 1)
         .await?
         .iter()
         .map(|task| TaskSerializer::from(task.clone()))
         .collect();
 
-    Ok(JsonResponse::data(tasks, None))
+    Ok(JsonResponse::paginate(tasks, response_metadata, None))
 }
 
 #[axum::debug_handler]
@@ -73,7 +85,7 @@ pub async fn create_task(
     Ok(JsonResponse::data(task, None))
 }
 
-pub async fn get_task_detail(
+pub async fn get_task(
     State(app_state): State<Arc<AppState>>,
     Path(task_id): Path<i32>,
 ) -> Result<impl IntoResponse, AppError> {
