@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     api_response::JsonResponse,
-    auth::{jwt::TokenClaims, UserToken},
+    auth::jwt::{create_user_token, TokenClaims, UserToken},
     error::AppError,
     form::user_form::UserLogin,
     models::_entities::user,
@@ -44,28 +44,12 @@ pub async fn login(
         return Err(AppError::GenericError("Invalid user".to_string()));
     }
 
-    let now = Utc::now();
-    let iat = now.timestamp() as usize;
-    let exp = (now + Duration::minutes(60)).timestamp() as usize;
-
-    let token_claims = TokenClaims {
-        sub: user.email,
-        iat,
-        exp,
-    };
-
-    let jwt_secret = std::env::var("JWT_SECRET").expect("JWT Secret not set.");
-
-    let access_token = encode(
-        &Header::default(),
-        &token_claims,
-        &EncodingKey::from_secret(jwt_secret.as_ref()),
-    )
-    .unwrap();
+    let access_token = create_user_token(&user.email, 10).await;
+    let refresh_token = create_user_token(&user.email, 1440).await;
 
     let user_token = UserToken {
         access_token,
-        refresh_token: None,
+        refresh_token: Some(refresh_token),
     };
 
     Ok(JsonResponse::data(user_token, None))
