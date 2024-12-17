@@ -188,21 +188,43 @@ pub async fn delete_user(
 pub async fn get_user_tasks(
     State(app_state): State<Arc<AppState>>,
     Path(user_id): Path<i32>,
+    Query(params): Query<HashMap<String, String>>,
+    OriginalUri(original_uri): OriginalUri,
 ) -> Result<impl IntoResponse, AppError> {
     let user = user::Entity::find_by_id(user_id)
         .one(&app_state.db)
         .await?
         .ok_or(sqlx::Error::RowNotFound)?;
 
-    let tasks: Vec<TaskSerializer> = user
-        .find_related(task::Entity)
-        .all(&app_state.db)
+    let task_query = user.find_related(task::Entity);
+
+    let task_count = task_query.clone().count(&app_state.db).await?;
+
+    let response_metadata = ResponseMetadata::new(task_count, Some(original_uri.to_string()));
+
+    let page = params
+        .get("page")
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(1);
+
+    let per_page = std::env::var("PER_PAGE")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(10);
+
+    let task_serializer: Vec<TaskSerializer> = task_query
+        .paginate(&app_state.db, per_page)
+        .fetch_page(page - 1)
         .await?
         .iter()
         .map(|task| TaskSerializer::from(task.clone()))
         .collect();
 
-    Ok(JsonResponse::data(tasks, None))
+    Ok(JsonResponse::paginate(
+        task_serializer,
+        response_metadata,
+        None,
+    ))
 }
 
 #[axum::debug_handler()]
@@ -257,7 +279,7 @@ pub async fn create_user_roles(
     if new_roles.is_empty() {
         return Ok(JsonResponse::data(
             None::<String>,
-            Some("Successfully added.".to_string()),
+            Some("Already added.".to_string()),
         ));
     }
 

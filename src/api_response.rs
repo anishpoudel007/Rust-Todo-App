@@ -59,6 +59,18 @@ pub struct ResponseMetadata {
     pub next_url: Option<String>,
 }
 
+impl ResponseMetadata {
+    pub fn new(count: u64, url: Option<String>) -> Self {
+        Self {
+            count,
+            per_page: 10,
+            total_page: count.div_ceil(10),
+            current_url: url,
+            ..Default::default()
+        }
+    }
+}
+
 #[derive(Debug, Serialize)]
 pub struct PaginatedResponse {
     pub data: Value,
