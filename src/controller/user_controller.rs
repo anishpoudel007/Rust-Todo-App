@@ -8,8 +8,8 @@ use axum::{
     Json, Router,
 };
 use sea_orm::{
-    sea_query::ExprTrait, ActiveModelTrait, ActiveValue::NotSet, ColumnTrait, DbErr, EntityTrait,
-    ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, Set, TransactionTrait,
+    ActiveModelTrait, ActiveValue::NotSet, ColumnTrait, DbErr, EntityTrait, ModelTrait,
+    PaginatorTrait, QueryFilter, QueryOrder, Set, TransactionTrait,
 };
 use validator::Validate;
 

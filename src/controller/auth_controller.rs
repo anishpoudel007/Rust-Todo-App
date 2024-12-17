@@ -46,7 +46,7 @@ pub async fn login(
 
     let now = Utc::now();
     let iat = now.timestamp() as usize;
-    let exp = (now + Duration::minutes(10)).timestamp() as usize;
+    let exp = (now + Duration::minutes(60)).timestamp() as usize;
 
     let token_claims = TokenClaims {
         sub: user.email,
