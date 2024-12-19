@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     api_response::JsonResponse,
-    auth::jwt::{create_user_token, TokenClaims, UserToken},
+    auth::jwt::{create_user_token, UserToken},
     error::AppError,
     form::user_form::UserLogin,
     models::_entities::user,
@@ -11,8 +11,6 @@ use crate::{
 };
 
 use axum::{extract::State, response::IntoResponse, routing::post, Json, Router};
-use chrono::{Duration, Utc};
-use jsonwebtoken::{encode, EncodingKey, Header};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
 pub async fn get_routes() -> Router<Arc<AppState>> {

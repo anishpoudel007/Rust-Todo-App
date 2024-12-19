@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::{http::StatusCode, Router};
 use sea_orm::{Database, DatabaseConnection};
-use tokio::net::TcpListener;
+use tokio::{net::TcpListener, signal};
 use tower_http::trace::TraceLayer;
 
 mod api_response;
@@ -40,7 +40,10 @@ async fn main() {
 
     let app = create_app().await;
 
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await
+        .unwrap();
 }
 
 async fn create_app() -> Router {
@@ -78,6 +81,30 @@ async fn create_app() -> Router {
 
 async fn fallback_handler() -> StatusCode {
     StatusCode::NOT_FOUND
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
 }
 
 #[cfg(test)]

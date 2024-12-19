@@ -29,3 +29,8 @@ pub struct UpdateRoleRequest {
 pub struct UpdateUserRolesRequest {
     pub roles: Vec<String>,
 }
+
+#[derive(Debug, Serialize, Deserialize, Validate)]
+pub struct UpdateUserPermissionRequest {
+    pub permissions: Vec<String>,
+}

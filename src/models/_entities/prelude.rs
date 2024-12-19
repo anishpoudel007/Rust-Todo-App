@@ -4,5 +4,6 @@ pub use super::permission::Entity as Permission;
 pub use super::role::Entity as Role;
 pub use super::task::Entity as Task;
 pub use super::user::Entity as User;
+pub use super::user_permission::Entity as UserPermission;
 pub use super::user_profile::Entity as UserProfile;
 pub use super::user_role::Entity as UserRole;

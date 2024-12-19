@@ -1,9 +1,9 @@
 use sea_orm::{ActiveModelBehavior, ConnectionTrait, DbErr, Related, RelationDef, RelationTrait};
 
 use super::_entities::{
-    role,
+    permission, role,
     user::{ActiveModel, Entity},
-    user_role,
+    user_permission, user_role,
 };
 
 impl Related<role::Entity> for Entity {
@@ -12,6 +12,15 @@ impl Related<role::Entity> for Entity {
     }
     fn via() -> Option<RelationDef> {
         Some(user_role::Relation::User.def().rev())
+    }
+}
+
+impl Related<permission::Entity> for Entity {
+    fn to() -> RelationDef {
+        user_permission::Relation::Permission.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(user_permission::Relation::User.def().rev())
     }
 }
 
